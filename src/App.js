@@ -1,43 +1,35 @@
 import React, { useState } from "react";
+import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 import logo from "./3run4-logo.png"; // Place your logo in src/
 
 const PRIMARY_RED = "#ee2328";
 const PRIMARY_BLUE = "#143e8e";
 const LIGHT_GRAY = "#f2f3f7";
 const CARD_BG = "#ffffff";
-
 const API_URL = "https://qjbg4gz6ff.execute-api.us-east-1.amazonaws.com/prod";
 
-function App() {
+function UserLoginAndCard() {
   const [name, setName] = useState("");
   const [loggedIn, setLoggedIn] = useState(false);
   const [stampCount, setStampCount] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-const fetchCard = async (userName) => {
-  setLoading(true);
-  setError("");
-  try {
-    const res = await fetch(`${API_URL}/card?name=${encodeURIComponent(userName)}`);
-    const data = await res.json();
-    console.log("Card response:", data);
-
-    let parsed = data.body ? JSON.parse(data.body) : {};
-    let count = 0;
-    if (typeof parsed.stamp_count === "number") {
-      count = parsed.stamp_count;
-    } else if (parsed.Attributes && typeof parsed.Attributes.stamp_count === "number") {
-      count = parsed.Attributes.stamp_count;
-    } else if (res.status === 404) {
-      count = 0;
+  // Fetch the current card for this user
+  const fetchCard = async (userName) => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_URL}/card?name=${encodeURIComponent(userName)}`);
+      const data = await res.json();
+      let parsed = data.body ? JSON.parse(data.body) : {};
+      let count = typeof parsed.stamp_count === "number" ? parsed.stamp_count : 0;
+      setStampCount(count);
+    } catch (err) {
+      setError("Failed to connect to backend.");
     }
-    setStampCount(count);
-  } catch (err) {
-    setError("Failed to connect to backend.");
-  }
-  setLoading(false);
-};
+    setLoading(false);
+  };
 
   // Handle login
   const handleLogin = async (e) => {
@@ -47,35 +39,29 @@ const fetchCard = async (userName) => {
     await fetchCard(name.trim());
   };
 
-const handleAddStamp = async () => {
-  setError("");
-  setLoading(true);
-  try {
-    const res = await fetch(`${API_URL}/stamp`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    const data = await res.json();
-    console.log("Add stamp response:", data);
-
-    let parsed = data.body ? JSON.parse(data.body) : {};
-    let count = null;
-    if (typeof parsed.stamp_count === "number") {
-      count = parsed.stamp_count;
-    } else if (parsed.Attributes && typeof parsed.Attributes.stamp_count === "number") {
-      count = parsed.Attributes.stamp_count;
+  // Add a stamp and update UI
+  const handleAddStamp = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/stamp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      let parsed = data.body ? JSON.parse(data.body) : {};
+      let count = typeof parsed.stamp_count === "number" ? parsed.stamp_count : null;
+      if (count !== null) {
+        setStampCount(count);
+      } else {
+        setError(parsed.error || "Could not update stamp count.");
+      }
+    } catch (err) {
+      setError("Failed to add stamp.");
     }
-    if (count !== null) {
-      setStampCount(count);
-    } else {
-      setError("Could not update stamp count.");
-    }
-  } catch (err) {
-    setError("Failed to add stamp.");
-  }
-  setLoading(false);
-};
+    setLoading(false);
+  };
 
   // Reset and log out
   const handleLogout = () => {
@@ -85,7 +71,7 @@ const handleAddStamp = async () => {
     setError("");
   };
 
-  // Render login form
+  // Login form
   if (!loggedIn) {
     return (
       <div style={{
@@ -232,6 +218,133 @@ const handleAddStamp = async () => {
       </button>
       {error && <p style={{ color: PRIMARY_RED, marginTop: 14 }}>{error}</p>}
     </div>
+  );
+}
+
+// ----------- ADMIN LOGIN AND DASHBOARD -----------
+function AdminLoginAndDashboard() {
+  const [adminUsername, setAdminUsername] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [adminLoggedIn, setAdminLoggedIn] = useState(false);
+  const [adminError, setAdminError] = useState("");
+  const [users, setUsers] = useState([]);
+  const [usersError, setUsersError] = useState("");
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const navigate = useNavigate();
+
+  const ADMIN_USER = "admin";
+  const ADMIN_PASS = "3run4";
+
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
+    setUsersError("");
+    try {
+      const res = await fetch(`${API_URL}/users`);
+      const data = await res.json();
+      const items = data.body ? JSON.parse(data.body) : data;
+      setUsers(items);
+    } catch (err) {
+      setUsersError("Failed to fetch users.");
+    }
+    setLoadingUsers(false);
+  };
+
+  const handleAdminLogin = async (e) => {
+    e.preventDefault();
+    if (adminUsername === ADMIN_USER && adminPassword === ADMIN_PASS) {
+      setAdminLoggedIn(true);
+      setAdminError("");
+      await fetchUsers();
+    } else {
+      setAdminError("Invalid admin username or password.");
+    }
+  };
+
+  if (!adminLoggedIn) {
+    return (
+      <div style={{ maxWidth: 350, margin: "3rem auto", padding: "2rem", textAlign: "center" }}>
+        <img src={logo} alt="3run4 logo" style={{ height: 60, marginBottom: 12 }} />
+        <h2 style={{ color: PRIMARY_BLUE }}>Admin Login</h2>
+        <form onSubmit={handleAdminLogin}>
+          <input
+            placeholder="Username"
+            value={adminUsername}
+            onChange={e => setAdminUsername(e.target.value)}
+            style={{ width: "80%", padding: 12, fontSize: 16, border: `2px solid ${PRIMARY_BLUE}`, borderRadius: 8, marginBottom: 12 }}
+            required
+          /><br/>
+          <input
+            type="password"
+            placeholder="Password"
+            value={adminPassword}
+            onChange={e => setAdminPassword(e.target.value)}
+            style={{ width: "80%", padding: 12, fontSize: 16, border: `2px solid ${PRIMARY_RED}`, borderRadius: 8, marginBottom: 12 }}
+            required
+          /><br/>
+          <button style={{ padding: "10px 30px", fontSize: 16, background: PRIMARY_BLUE, color: "white", border: "none", borderRadius: 8, letterSpacing: 1, fontWeight: "bold", cursor: "pointer" }} type="submit">
+            Login
+          </button>
+        </form>
+        {adminError && <p style={{ color: PRIMARY_RED, marginTop: 14 }}>{adminError}</p>}
+        <button
+          onClick={() => navigate("/")}
+          style={{ marginTop: 16, color: PRIMARY_BLUE, background: "none", border: "none", textDecoration: "underline" }}
+        >
+          Back to User Login
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: 540, margin: "3rem auto", padding: "2rem", textAlign: "center" }}>
+      <img src={logo} alt="3run4 logo" style={{ height: 60, marginBottom: 12 }} />
+      <h2 style={{ color: PRIMARY_BLUE }}>Admin Dashboard</h2>
+      <button onClick={fetchUsers} style={{ marginBottom: 14, fontSize: 15, background: PRIMARY_BLUE, color: "white", border: "none", borderRadius: 6, padding: "8px 20px", fontWeight: 500, cursor: "pointer" }}>
+        Refresh
+      </button>
+      {loadingUsers ? (
+        <p>Loading users...</p>
+      ) : usersError ? (
+        <p style={{ color: PRIMARY_RED }}>{usersError}</p>
+      ) : (
+        <table style={{ width: "100%", marginTop: 12, borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: LIGHT_GRAY }}>
+              <th style={{ padding: 8, border: `1px solid ${PRIMARY_BLUE}` }}>Name</th>
+              <th style={{ padding: 8, border: `1px solid ${PRIMARY_BLUE}` }}>Stamps</th>
+              <th style={{ padding: 8, border: `1px solid ${PRIMARY_BLUE}` }}>Last Stamp Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.length === 0 ? (
+              <tr><td colSpan={3} style={{ padding: 12 }}>No users yet.</td></tr>
+            ) : users.map((u, idx) => (
+              <tr key={idx}>
+                <td style={{ padding: 8, border: `1px solid #bbb` }}>{u.name}</td>
+                <td style={{ padding: 8, border: `1px solid #bbb`, textAlign: "center" }}>{u.stamp_count || 0}</td>
+                <td style={{ padding: 8, border: `1px solid #bbb`, textAlign: "center" }}>{u.last_stamp_date || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <button onClick={() => setAdminLoggedIn(false)} style={{ marginTop: 22, background: "none", color: PRIMARY_RED, border: "none", textDecoration: "underline", fontSize: 15, cursor: "pointer" }}>
+        Log out
+      </button>
+    </div>
+  );
+}
+
+// ----------- APP ROUTER -----------
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/admin" element={<AdminLoginAndDashboard />} />
+        <Route path="/" element={<UserLoginAndCard />} />
+      </Routes>
+    </Router>
   );
 }
 
