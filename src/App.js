@@ -2,95 +2,91 @@ import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 import logo from "./3run4-logo.png";
 
-const PRIMARY_RED = "#ee2328";
-const PRIMARY_BLUE = "#143e8e";
-const LIGHT_GRAY = "#f2f3f7";
-const CARD_BG = "#ffffff";
+// ---- Color Palette ----
+const PRIMARY_BLUE = "#143E8E";
+const PRIMARY_RED = "#E02327";
+const CARD_BG = "#fff";
+const LIGHT_GRAY = "#f4f6fa";
 const API_URL = "https://qjbg4gz6ff.execute-api.us-east-1.amazonaws.com/prod";
 
+// ---- Attendance Bar Chart (Tiny) ----
+function AttendanceBar({ dates }) {
+  if (!Array.isArray(dates) || dates.length === 0) return <div style={{minWidth:60}} />;
+  // Only show last 40 weeks, right-aligned
+  const maxBars = 40;
+  const sorted = [...dates].sort();
+  const bars = sorted.slice(-maxBars);
+  return (
+    <div style={{ display: "flex", gap: 1, alignItems: "flex-end", minWidth: 60 }}>
+      {[...Array(maxBars)].map((_, i) => {
+        const hasAttendance = i >= maxBars - bars.length;
+        return (
+          <div
+            key={i}
+            title={hasAttendance ? bars[i - (maxBars - bars.length)] : ""}
+            style={{
+              width: 4,
+              height: hasAttendance ? 20 : 8,
+              background: hasAttendance ? "#143E8E" : "#E0E2E8",
+              borderRadius: 2,
+              marginRight: i === maxBars-1 ? 0 : 1,
+              transition: "background 0.2s"
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// --------------- USER LOGIN AND CARD ---------------
 function UserLoginAndCard() {
   const [email, setEmail] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [displayNameInput, setDisplayNameInput] = useState("");
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [stampCount, setStampCount] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [prizesClaimed, setPrizesClaimed] = useState([]);
   const [initialStampsInput, setInitialStampsInput] = useState("");
   const [firstTime, setFirstTime] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [stampCount, setStampCount] = useState(0);
+  const [prizesClaimed, setPrizesClaimed] = useState([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // Emoji for prizes at the end of each row
-  const prizeEmojis = ["🧢", "🍺", "🚗", ""];
-  const prizeThresholds = [5, 10, 15, 0]; // 0 for padding
-
-  // 5 stamps per row, + 1 for prize
-  const stampsPerRow = 5;
-
-  // Helper to get # of rows needed for user's stamps (minimum 4)
-  const totalRows = Math.max(Math.ceil((stampCount || 0) / stampsPerRow), 4);
-
-  // Fetch card data from backend
-const fetchCard = async (userEmail) => {
-  setLoading(true);
-  setError("");
-  try {
-    const url = `${API_URL}/card?email=${encodeURIComponent(userEmail)}`;
-    const res = await fetch(url);
-    if (res.status === 404) {
-      // Definitely a new user!
-      setFirstTime(true);
-      setDisplayName("");
-      setStampCount(0);
-      setPrizesClaimed([]);
-      setError("");
-      setLoading(false);
-      return;
-    }
-    const data = await res.json();
-    let parsed = {};
-    if (data.body) { try { parsed = JSON.parse(data.body); } catch { parsed = data.body; } } else { parsed = data; }
-    if (parsed.error === "User not found") {
-      setFirstTime(true);
-      setDisplayName("");
-      setStampCount(0);
-      setPrizesClaimed([]);
-      setError("");
-      setLoading(false);
-      return;
-    }
-    setStampCount(parsed.stamp_count || 0);
-    setDisplayName(parsed.display_name || "");
-    setPrizesClaimed(parsed.prizes_claimed || []);
-    setFirstTime(false);
-    if (parsed.error) setError(parsed.error);
-  } catch (err) {
-    setFirstTime(true);
-    setDisplayName("");
-    setStampCount(0);
-    setPrizesClaimed([]);
-    setError("");
-  }
-  setLoading(false);
-};
-
-
-  // On login, fetch or register user
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-      setError("Please enter a valid email address.");
-      return;
+    setLoading(true);
+    const emailTrimmed = email.trim().toLowerCase();
+    try {
+      const url = `${API_URL}/card?email=${encodeURIComponent(emailTrimmed)}`;
+      const res = await fetch(url);
+      if (res.status === 404) {
+        setFirstTime(true);
+        setDisplayName("");
+        setStampCount(0);
+        setPrizesClaimed([]);
+        setLoggedIn(true);
+        setError("");
+      } else {
+        const data = await res.json();
+        let parsed = data.body ? JSON.parse(data.body) : data;
+        setDisplayName(parsed.display_name || "");
+        setStampCount(parsed.stamp_count || 0);
+        setPrizesClaimed(parsed.prizes_claimed || []);
+        setFirstTime(false);
+        setLoggedIn(true);
+        setError("");
+      }
+    } catch {
+      setError("Could not login.");
     }
-    setLoggedIn(true);
-    await fetchCard(email.trim().toLowerCase());
+    setLoading(false);
   };
 
-  // If first login and displayName is empty, ask for it
   const handleSetDisplayName = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
     try {
       let body = {
         email: email.trim().toLowerCase(),
@@ -104,45 +100,75 @@ const fetchCard = async (userEmail) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      await fetchCard(email.trim().toLowerCase());
-    } catch (err) {
+      const data = await res.json();
+      let parsed = data.body ? JSON.parse(data.body) : data;
+      setDisplayName(parsed.display_name || "");
+      setStampCount(parsed.stamp_count || 0);
+      setPrizesClaimed(parsed.prizes_claimed || []);
+      setFirstTime(false);
+      setError("");
+    } catch {
       setError("Failed to save display name.");
     }
     setLoading(false);
   };
 
   const handleAddStamp = async () => {
-    setError("");
     setLoading(true);
+    setError("");
     try {
       const res = await fetch(`${API_URL}/stamp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
       const data = await res.json();
-      let parsed = {};
-      if (data.body) { try { parsed = JSON.parse(data.body); } catch { parsed = data.body; } } else { parsed = data; }
-      let count = typeof parsed.stamp_count === "number" ? parsed.stamp_count : null;
-      setStampCount(count || 0);
-      setPrizesClaimed(parsed.prizes_claimed || []);
-      if (parsed.error) setError(parsed.error);
-    } catch (err) {
-      setError("Failed to add stamp.");
+      let parsed = data.body ? JSON.parse(data.body) : data;
+      if (parsed.stamp_count !== undefined) setStampCount(parsed.stamp_count);
+      if (parsed.prizes_claimed) setPrizesClaimed(parsed.prizes_claimed);
+      setError(parsed.error || "");
+    } catch {
+      setError("Could not update stamp count.");
     }
     setLoading(false);
   };
 
   const handleLogout = () => {
-    setLoggedIn(false);
     setEmail("");
     setDisplayName("");
-    setStampCount(null);
+    setDisplayNameInput("");
+    setStampCount(0);
     setPrizesClaimed([]);
+    setLoggedIn(false);
     setError("");
+    setFirstTime(false);
+    setInitialStampsInput("");
   };
 
-  // Display name + initial stamp form for first-time users
+  // ---- Render logic for user registration and card ----
+  if (!loggedIn) {
+    return (
+      <div style={{ maxWidth: 350, margin: "3rem auto", padding: "2rem", textAlign: "center", background: CARD_BG, borderRadius: 16, boxShadow: "0 4px 16px rgba(20,62,142,0.10)" }}>
+        <img src={logo} alt="3run4 logo" style={{ height: 60, marginBottom: 12 }} />
+        <h2 style={{ color: PRIMARY_BLUE }}>Sign in</h2>
+        <form onSubmit={handleLogin}>
+          <input
+            type="email"
+            placeholder="Email Address"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            style={{ width: "80%", padding: 12, fontSize: 16, border: `2px solid ${PRIMARY_BLUE}`, borderRadius: 8, marginBottom: 12 }}
+            required
+          />
+          <button style={{ padding: "10px 30px", fontSize: 16, background: PRIMARY_BLUE, color: "white", border: "none", borderRadius: 8, fontWeight: "bold", cursor: "pointer" }}>
+            {loading ? "Signing in..." : "Sign In"}
+          </button>
+        </form>
+        {error && <p style={{ color: PRIMARY_RED, marginTop: 14 }}>{error}</p>}
+      </div>
+    );
+  }
+
   if (loggedIn && !displayName) {
     return (
       <div style={{ maxWidth: 350, margin: "3rem auto", padding: "2rem", textAlign: "center", background: CARD_BG, borderRadius: 16, boxShadow: "0 4px 16px rgba(20,62,142,0.10)" }}>
@@ -186,200 +212,183 @@ const fetchCard = async (userEmail) => {
     );
   }
 
-  // Login form
-  if (!loggedIn) {
-    return (
-      <div style={{ maxWidth: 350, margin: "3rem auto", padding: "2rem", textAlign: "center", background: CARD_BG, borderRadius: 16, boxShadow: "0 4px 16px rgba(20,62,142,0.10)" }}>
-        <img src={logo} alt="3run4 logo" style={{ height: 60, marginBottom: 12 }} />
-        <h2 style={{ color: PRIMARY_BLUE, margin: "0 0 12px 0" }}>3run4 Stamp Card</h2>
-        <form onSubmit={handleLogin}>
-          <input
-            type="email"
-            placeholder="Enter your email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={{ width: "80%", padding: 12, fontSize: 16, border: `2px solid ${PRIMARY_RED}`, borderRadius: 8, outline: "none", marginBottom: 12 }}
-            required
-          />
-          <br />
-          <button style={{ marginTop: 10, padding: "10px 30px", fontSize: 16, background: PRIMARY_RED, color: "white", border: "none", borderRadius: 8, letterSpacing: 1, fontWeight: "bold", cursor: "pointer" }} type="submit" disabled={loading || !email.trim()}>
-            {loading ? "Loading..." : "Login"}
-          </button>
-        </form>
-        {error && <p style={{ color: PRIMARY_RED, marginTop: 14 }}>{error}</p>}
-      </div>
-    );
+  // ---- Fancy Stamp Card UI (add your own emojis if desired!) ----
+  function getPrizeEmoji(idx) {
+    if (idx === 4) return "🧢"; // 5 stamps
+    if (idx === 9) return "🍺"; // 10 stamps
+    if (idx === 14) return "🚗"; // 15 stamps
+    return "";
   }
 
-  // ----- LOGGED-IN USER STAMP CARD -----
-  // Dynamically render rows; 5 stamps + 1 emoji at end per row
-  const renderRows = [];
-  for (let row = 0; row < totalRows; row++) {
-    const rowStamps = [];
-    for (let i = 0; i < stampsPerRow; i++) {
-      const stampNumber = row * stampsPerRow + i + 1;
-      rowStamps.push(
-        <span key={i} style={{
-          width: 30,
-          height: 30,
-          borderRadius: "50%",
-          display: "inline-block",
-          background: stampNumber <= (stampCount || 0) ? PRIMARY_RED : LIGHT_GRAY,
-          border: `2px solid ${stampNumber <= (stampCount || 0) ? PRIMARY_BLUE : "#ccc"}`,
-          color: stampNumber <= (stampCount || 0) ? "white" : "#bbb",
-          fontWeight: "bold",
-          lineHeight: "30px",
-          fontSize: 19,
-          marginRight: 8,
-          boxShadow: stampNumber <= (stampCount || 0) ? `0 0 4px ${PRIMARY_BLUE}` : "none",
-          transition: "all 0.2s"
+  const cardRows = 4, cardCols = 5;
+  const stampCircles = [];
+  for (let row = 0; row < cardRows; ++row) {
+    const rowArr = [];
+    for (let col = 0; col < cardCols; ++col) {
+      const idx = row * cardCols + col;
+      rowArr.push(
+        <div key={col} style={{
+          width: 36, height: 36, borderRadius: 18,
+          margin: 4,
+          background: idx < stampCount ? PRIMARY_RED : "#ececec",
+          border: `2px solid ${PRIMARY_BLUE}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 21, fontWeight: "bold", color: "#fff", position: "relative"
         }}>
-          {stampNumber <= (stampCount || 0) ? "✓" : ""}
-        </span>
+          {idx < stampCount ? "✔️" : ""}
+          <span style={{ position: "absolute", right: -25 }}>{getPrizeEmoji(idx)}</span>
+        </div>
       );
     }
-    // Emoji prize at end (dim if not yet reached)
-    let emoji = "";
-    let dim = false;
-    if (row < prizeEmojis.length && prizeEmojis[row]) {
-      emoji = prizeEmojis[row];
-      dim = (stampCount || 0) < prizeThresholds[row];
-    }
-    rowStamps.push(
-      <span key="emoji" style={{
-        marginLeft: 6,
-        fontSize: 22,
-        opacity: emoji && dim ? 0.25 : 1,
-        filter: emoji && dim ? "grayscale(60%)" : "none"
-      }}>{emoji}</span>
-    );
-    renderRows.push(
-      <div key={row} style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 0, marginBottom: 8 }}>
-        {rowStamps}
-      </div>
+    stampCircles.push(
+      <div key={row} style={{ display: "flex", justifyContent: "center" }}>{rowArr}</div>
     );
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: "3rem auto", padding: "2rem", background: CARD_BG, borderRadius: 18, boxShadow: "0 8px 32px rgba(20,62,142,0.11)", textAlign: "center", border: `2px solid ${PRIMARY_BLUE}` }}>
-      <img src={logo} alt="3run4 logo" style={{ height: 52, marginBottom: 4 }} />
-      <h2 style={{ color: PRIMARY_BLUE, margin: "0 0 10px 0", fontWeight: 800 }}>
-        Welcome, <span style={{ color: PRIMARY_RED }}>{displayName}</span>!
+    <div style={{ maxWidth: 400, margin: "3rem auto", padding: "2rem", textAlign: "center", background: CARD_BG, borderRadius: 16, boxShadow: "0 4px 16px rgba(20,62,142,0.10)" }}>
+      <img src={logo} alt="3run4 logo" style={{ height: 60, marginBottom: 12 }} />
+      <h2>
+        <span style={{ color: PRIMARY_BLUE }}>Welcome,</span>{" "}
+        <span style={{ color: PRIMARY_RED }}>{displayName || email}</span>!
       </h2>
-      <div style={{ color: PRIMARY_RED, fontWeight: 600, marginBottom: 2 }}>Your stamp card:</div>
-      <div style={{ marginTop: 18, marginBottom: 0 }}>
-        {renderRows}
+      <div style={{ margin: "16px 0 10px 0", color: PRIMARY_RED, fontWeight: 700 }}>Your stamp card:</div>
+      <div>{stampCircles}</div>
+      <div style={{margin:"10px 0 5px 0", color:PRIMARY_BLUE, fontWeight:700}}>Prizes:</div>
+      <div style={{fontSize:15, marginBottom:6}}>
+        <b>5 stamps:</b> Hat<br/>
+        <b>10 stamps:</b> Case of Beer<br/>
+        <b>15 stamps:</b> Model Car
       </div>
-      <p style={{ marginTop: 12, fontWeight: "bold", color: PRIMARY_BLUE }}>
-        {stampCount || 0} stamp{stampCount === 1 ? "" : "s"}
-      </p>
+      <div style={{ margin: "12px 0", color: PRIMARY_BLUE, fontWeight: 700 }}>{stampCount} stamps</div>
       <button
         onClick={handleAddStamp}
+        style={{
+          padding: "10px 30px",
+          fontSize: 16,
+          background: PRIMARY_BLUE,
+          color: "white",
+          border: "none",
+          borderRadius: 8,
+          fontWeight: "bold",
+          cursor: "pointer",
+          marginBottom: 10
+        }}
         disabled={loading}
-        style={{ marginTop: 18, padding: "10px 26px", background: PRIMARY_BLUE, color: "white", border: "none", borderRadius: 8, fontSize: 17, fontWeight: "bold", letterSpacing: 1, boxShadow: "0 2px 8px rgba(20,62,142,0.08)", cursor: loading ? "wait" : "pointer" }}
       >
-        {loading ? "Stamping..." : "Add Stamp"}
+        Add Stamp
       </button>
-      <br />
-      <button onClick={handleLogout} style={{ marginTop: 22, background: "none", color: PRIMARY_RED, border: "none", textDecoration: "underline", fontSize: 15, cursor: "pointer" }}>
-        Log out
-      </button>
-      {error && <p style={{ color: PRIMARY_RED, marginTop: 14 }}>{error}</p>}
+      <div>
+        <button onClick={handleLogout} style={{ marginTop: 14, background: "none", color: PRIMARY_RED, border: "none", textDecoration: "underline", fontSize: 15, cursor: "pointer" }}>Log out</button>
+      </div>
+      {error && <div style={{ color: PRIMARY_RED, marginTop: 8 }}>{error}</div>}
     </div>
   );
 }
 
-// ---------- ADMIN DASHBOARD & LOGIN ----------
+// --------------- ADMIN DASHBOARD ---------------
 function AdminLoginAndDashboard() {
-  const [adminUsername, setAdminUsername] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
+  const navigate = useNavigate();
   const [adminLoggedIn, setAdminLoggedIn] = useState(false);
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
   const [adminError, setAdminError] = useState("");
   const [users, setUsers] = useState([]);
-  const [usersError, setUsersError] = useState("");
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [usersError, setUsersError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterWeek, setFilterWeek] = useState("this"); // "this", "last", "custom"
+  const [customWeek, setCustomWeek] = useState(""); // format: "2025-06-20"
   const [raffleWinner, setRaffleWinner] = useState(null);
-  const [raffleCandidates, setRaffleCandidates] = useState([]);
-  const [csv, setCSV] = useState("");
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [manualEdit, setManualEdit] = useState({});
+  const [selectedUser, setSelectedUser] = useState(null);
 
-  const ADMIN_USER = "admin";
-  const ADMIN_PASS = "3run4";
-  const navigate = useNavigate();
+  // ----- ADMIN LOGIN -----
+  const handleAdminLogin = (e) => {
+    e.preventDefault();
+    if (adminEmail === "admin@3run4.org" && adminPassword === "3run4") {
+      setAdminLoggedIn(true);
+      setAdminError("");
+      fetchUsers();
+    } else {
+      setAdminError("Invalid admin login");
+    }
+  };
 
-  // Fetch all users
+  // ----- FETCH USERS -----
   const fetchUsers = async () => {
     setLoadingUsers(true);
     setUsersError("");
     try {
-      const url = `${API_URL}/users`;
-      const res = await fetch(url);
+      const res = await fetch(`${API_URL}/users`);
       const data = await res.json();
-      let items = [];
-      if (data.body) { try { items = JSON.parse(data.body); } catch { items = []; } } else { items = data; }
-      setUsers(items);
-    } catch (err) {
-      setUsersError("Failed to fetch users.");
+      let parsed = data.body ? JSON.parse(data.body) : data;
+      setUsers(parsed || []);
+    } catch {
+      setUsersError("Failed to load users.");
     }
     setLoadingUsers(false);
   };
 
-  const handleAdminLogin = async (e) => {
-    e.preventDefault();
-    if (adminUsername === ADMIN_USER && adminPassword === ADMIN_PASS) {
-      setAdminLoggedIn(true);
-      setAdminError("");
-      await fetchUsers();
-    } else {
-      setAdminError("Invalid admin username or password.");
+  // ----- FILTER/SEARCH -----
+  const getFilteredUsers = () => {
+    let filtered = users;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        u =>
+          (u.email && u.email.toLowerCase().includes(q)) ||
+          (u.display_name && u.display_name.toLowerCase().includes(q))
+      );
     }
+    // Filter by attendance week
+    let weekStart;
+    if (filterWeek === "this" || filterWeek === "last" || filterWeek === "custom") {
+      let base = new Date();
+      if (filterWeek === "last") base.setDate(base.getDate() - 7);
+      if (filterWeek === "custom" && customWeek) base = new Date(customWeek);
+      // Find most recent Thursday before (or on) that date
+      const day = base.getDay();
+      const thursday = new Date(base);
+      thursday.setDate(base.getDate() - ((day + 7 - 4) % 7));
+      thursday.setHours(0, 0, 0, 0);
+      weekStart = thursday.toISOString().slice(0, 10);
+      filtered = filtered.filter(
+        u =>
+          u.attendance_dates &&
+          u.attendance_dates.includes(weekStart)
+      );
+    }
+    return filtered;
   };
 
-  // ---- Raffle Feature ----
-  function isUserPresentThisWeek(user) {
-    if (!user.last_stamp_date) return false;
-    const stampDate = new Date(user.last_stamp_date);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    let lastThursday = new Date(today);
-    while (lastThursday.getDay() !== 4) { lastThursday.setDate(lastThursday.getDate() - 1); }
-    return stampDate.toISOString().slice(0, 10) === lastThursday.toISOString().slice(0, 10);
-  }
-  function handlePickRaffleWinner() {
-    const candidates = users.filter(isUserPresentThisWeek);
-    setRaffleCandidates(candidates);
-    if (candidates.length === 0) {
-      setRaffleWinner(null);
-      alert("No eligible users this week!");
-      return;
-    }
-    const winner = candidates[Math.floor(Math.random() * candidates.length)];
+  // ----- RAFFLE PICKER -----
+  const handlePickRaffleWinner = () => {
+    const eligible = getFilteredUsers();
+    if (eligible.length === 0) return setRaffleWinner(null);
+    const winner = eligible[Math.floor(Math.random() * eligible.length)];
     setRaffleWinner(winner);
-  }
+  };
 
-  // ---- Export CSV ----
-  function handleExportCSV() {
-    const header = "Email,Display Name,Stamps,Last Stamp Date";
-    const lines = users.map(u =>
-      [u.email, `"${u.display_name || ""}"`, u.stamp_count || 0, u.last_stamp_date || ""].join(",")
-    );
-    setCSV([header, ...lines].join("\n"));
-    setTimeout(() => {
-      const blob = new Blob([[header, ...lines].join("\n")], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "3run4_users.csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }, 150);
-  }
+  // ----- MANUAL STAMP ADJUSTMENT -----
+  const handleManualEdit = (email, field, value) => {
+    setManualEdit({ ...manualEdit, [email]: { ...manualEdit[email], [field]: value } });
+  };
 
-  // ---- Leaderboard ----
-  const getStreak = (user) => user.streak || 0;
-  const topStreaks = [...users].sort((a, b) => (getStreak(b) - getStreak(a))).slice(0, 5);
+  const handleSaveManualEdit = async (email) => {
+    const { stamp_count } = manualEdit[email];
+    try {
+      await fetch(`${API_URL}/card`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, stamp_count: Number(stamp_count) }),
+      });
+      fetchUsers();
+      setManualEdit({ ...manualEdit, [email]: {} });
+    } catch {}
+  };
 
+  // ----- ADMIN UI -----
   if (!adminLoggedIn) {
     return (
       <div style={{ maxWidth: 350, margin: "3rem auto", padding: "2rem", textAlign: "center" }}>
@@ -387,124 +396,134 @@ function AdminLoginAndDashboard() {
         <h2 style={{ color: PRIMARY_BLUE }}>Admin Login</h2>
         <form onSubmit={handleAdminLogin}>
           <input
-            placeholder="Username"
-            value={adminUsername}
-            onChange={e => setAdminUsername(e.target.value)}
+            type="email"
+            placeholder="Admin Email"
+            value={adminEmail}
+            onChange={e => setAdminEmail(e.target.value)}
             style={{ width: "80%", padding: 12, fontSize: 16, border: `2px solid ${PRIMARY_BLUE}`, borderRadius: 8, marginBottom: 12 }}
             required
-          /><br/>
+          />
           <input
             type="password"
             placeholder="Password"
             value={adminPassword}
             onChange={e => setAdminPassword(e.target.value)}
-            style={{ width: "80%", padding: 12, fontSize: 16, border: `2px solid ${PRIMARY_RED}`, borderRadius: 8, marginBottom: 12 }}
+            style={{ width: "80%", padding: 12, fontSize: 16, border: `2px solid ${PRIMARY_BLUE}`, borderRadius: 8, marginBottom: 12 }}
             required
-          /><br/>
-          <button style={{ padding: "10px 30px", fontSize: 16, background: PRIMARY_BLUE, color: "white", border: "none", borderRadius: 8, letterSpacing: 1, fontWeight: "bold", cursor: "pointer" }} type="submit">
+          />
+          <button style={{ padding: "10px 30px", fontSize: 16, background: PRIMARY_BLUE, color: "white", border: "none", borderRadius: 8, fontWeight: "bold", cursor: "pointer" }}>
             Login
           </button>
         </form>
         {adminError && <p style={{ color: PRIMARY_RED, marginTop: 14 }}>{adminError}</p>}
-        <button
-          onClick={() => navigate("/")}
-          style={{ marginTop: 16, color: PRIMARY_BLUE, background: "none", border: "none", textDecoration: "underline" }}
-        >
-          Back to User Login
-        </button>
       </div>
     );
   }
 
+  // ------ Admin Dashboard ------
   return (
-    <div style={{ maxWidth: 760, margin: "3rem auto", padding: "2rem", textAlign: "center" }}>
-      <img src={logo} alt="3run4 logo" style={{ height: 60, marginBottom: 12 }} />
-      <h2 style={{ color: PRIMARY_BLUE }}>Admin Dashboard</h2>
-      <button onClick={fetchUsers} style={{ marginBottom: 14, fontSize: 15, background: PRIMARY_BLUE, color: "white", border: "none", borderRadius: 6, padding: "8px 20px", fontWeight: 500, cursor: "pointer" }}>
-        Refresh
-      </button>{" "}
-      <button onClick={handleExportCSV} style={{ marginBottom: 14, fontSize: 15, background: "#1fa743", color: "white", border: "none", borderRadius: 6, padding: "8px 20px", fontWeight: 500, cursor: "pointer" }}>
-        Export Emails (CSV)
-      </button>
-      <br />
-      <button
-        onClick={handlePickRaffleWinner}
-        style={{ marginBottom: 18, background: "#ffa500", color: "#222", fontWeight: "bold", borderRadius: 6, padding: "8px 22px", border: "none", fontSize: 15, cursor: "pointer" }}
-      >
-        Pick Raffle Winner (this week)
-      </button>{" "}
-      <button
-        onClick={() => setShowLeaderboard(l => !l)}
-        style={{ marginBottom: 18, background: "#24b6f9", color: "#fff", fontWeight: "bold", borderRadius: 6, padding: "8px 22px", border: "none", fontSize: 15, cursor: "pointer" }}
-      >
-        {showLeaderboard ? "Hide" : "Show"} Streaks Leaderboard
-      </button>
+    <div style={{ maxWidth: 950, margin: "2rem auto", padding: "2rem", background: CARD_BG, borderRadius: 18, boxShadow: "0 4px 24px rgba(20,62,142,0.08)" }}>
+      <img src={logo} alt="3run4 logo" style={{ height: 46, marginBottom: 10 }} />
+      <h2 style={{ color: PRIMARY_BLUE, marginTop: 0, marginBottom: 10 }}>Admin Dashboard</h2>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
+        <input
+          type="text"
+          placeholder="Search email or name"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          style={{ fontSize: 15, padding: 7, border: `1.5px solid ${PRIMARY_BLUE}`, borderRadius: 6, marginRight: 8, minWidth: 180 }}
+        />
+        <select value={filterWeek} onChange={e => setFilterWeek(e.target.value)} style={{ fontSize: 15, padding: 7, borderRadius: 6 }}>
+          <option value="this">This Week</option>
+          <option value="last">Last Week</option>
+          <option value="custom">Pick a Week</option>
+        </select>
+        {filterWeek === "custom" && (
+          <input
+            type="date"
+            value={customWeek}
+            onChange={e => setCustomWeek(e.target.value)}
+            style={{ marginRight: 10 }}
+          />
+        )}
+        <button onClick={fetchUsers} style={{ background: PRIMARY_BLUE, color: "white", border: "none", padding: "7px 14px", borderRadius: 5 }}>Refresh</button>
+        <button onClick={handlePickRaffleWinner} style={{ background: PRIMARY_RED, color: "white", border: "none", padding: "7px 14px", borderRadius: 5, marginLeft: 16 }}>Pick Raffle Winner</button>
+      </div>
       {raffleWinner && (
-        <div style={{ margin: "18px 0", fontWeight: 700, fontSize: 19, color: "#ee2328" }}>
+        <div style={{ background: "#f8fcf3", color: PRIMARY_RED, fontWeight: 700, border: `2px dashed ${PRIMARY_RED}`, padding: 16, marginBottom: 14, borderRadius: 8 }}>
           🎉 Raffle Winner: {raffleWinner.display_name || raffleWinner.email}
         </div>
       )}
-      {raffleCandidates.length > 0 && (
-        <div style={{ margin: "0 0 18px 0", fontSize: 15 }}>
-          <span>Eligible this week:</span> {raffleCandidates.map(u => u.display_name || u.email).join(", ")}
-        </div>
-      )}
-      {showLeaderboard && (
-        <div style={{ margin: "0 0 18px 0", fontSize: 15, background: "#f6faff", padding: 12, borderRadius: 7 }}>
-          <div style={{ fontWeight: "bold", color: PRIMARY_BLUE, fontSize: 16 }}>🏆 Streaks Leaderboard</div>
-          {topStreaks.map((u, idx) => (
-            <div key={idx}>
-              {idx + 1}. {u.display_name || u.email} – {u.streak || 0} weeks
-            </div>
-          ))}
-        </div>
-      )}
-      {loadingUsers ? (
-        <p>Loading users...</p>
-      ) : usersError ? (
-        <p style={{ color: PRIMARY_RED }}>{usersError}</p>
-      ) : (
-        <table style={{ width: "100%", marginTop: 12, borderCollapse: "collapse" }}>
+      {loadingUsers && <div>Loading...</div>}
+      {usersError && <div style={{ color: PRIMARY_RED }}>{usersError}</div>}
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 15 }}>
           <thead>
             <tr style={{ background: LIGHT_GRAY }}>
-              <th style={{ padding: 8, border: `1px solid ${PRIMARY_BLUE}` }}>Email</th>
-              <th style={{ padding: 8, border: `1px solid ${PRIMARY_BLUE}` }}>Display Name</th>
-              <th style={{ padding: 8, border: `1px solid ${PRIMARY_BLUE}` }}>Stamps</th>
-              <th style={{ padding: 8, border: `1px solid ${PRIMARY_BLUE}` }}>Last Stamp Date</th>
-              <th style={{ padding: 8, border: `1px solid ${PRIMARY_BLUE}` }}>Claimed Prizes</th>
+              <th>Email</th>
+              <th>Display Name</th>
+              <th>Stamps</th>
+              <th>Attendance</th>
+              <th>Prizes</th>
+              <th>Streak</th>
+              <th>Adjust</th>
             </tr>
           </thead>
           <tbody>
-            {users.length === 0 ? (
-              <tr><td colSpan={5} style={{ padding: 12 }}>No users yet.</td></tr>
-            ) : users.map((u, idx) => (
-              <tr key={idx}>
-                <td style={{ padding: 8, border: `1px solid #bbb` }}>{u.email}</td>
-                <td style={{ padding: 8, border: `1px solid #bbb` }}>{u.display_name || "-"}</td>
-                <td style={{ padding: 8, border: `1px solid #bbb`, textAlign: "center" }}>{u.stamp_count || 0}</td>
-                <td style={{ padding: 8, border: `1px solid #bbb`, textAlign: "center" }}>{u.last_stamp_date || "-"}</td>
-                <td style={{ padding: 8, border: `1px solid #bbb`, textAlign: "center" }}>
-                  {(u.prizes_claimed || []).join(", ")}
+            {getFilteredUsers().map(u => (
+              <tr key={u.email}>
+                <td>{u.email}</td>
+                <td>{u.display_name}</td>
+                <td>{manualEdit[u.email] ? (
+                  <input
+                    type="number"
+                    value={manualEdit[u.email].stamp_count || u.stamp_count}
+                    onChange={e => handleManualEdit(u.email, "stamp_count", e.target.value)}
+                    style={{ width: 50 }}
+                  />
+                ) : u.stamp_count}
+                </td>
+                <td>
+                  <AttendanceBar dates={u.attendance_dates} />
+                </td>
+                <td>{Array.isArray(u.prizes_claimed) ? u.prizes_claimed.join(", ") : ""}</td>
+                <td>{u.streak || 1}</td>
+                <td>
+                  {manualEdit[u.email] ? (
+                    <button onClick={() => handleSaveManualEdit(u.email)} style={{ background: PRIMARY_RED, color: "white", border: "none", borderRadius: 5, padding: "4px 12px" }}>Save</button>
+                  ) : (
+                    <button onClick={() => setManualEdit({ ...manualEdit, [u.email]: { stamp_count: u.stamp_count } })} style={{ background: PRIMARY_BLUE, color: "white", border: "none", borderRadius: 5, padding: "4px 12px" }}>Edit</button>
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-      )}
-      <button onClick={() => setAdminLoggedIn(false)} style={{ marginTop: 22, background: "none", color: PRIMARY_RED, border: "none", textDecoration: "underline", fontSize: 15, cursor: "pointer" }}>
-        Log out
+      </div>
+      <button onClick={() => {
+        const rows = getFilteredUsers().map(u => `${u.email},${u.display_name},${u.stamp_count}`);
+        const csv = "Email,Name,Stamps\n" + rows.join("\n");
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "users.csv";
+        a.click();
+      }} style={{ background: PRIMARY_BLUE, color: "white", border: "none", padding: "7px 14px", borderRadius: 5, marginTop: 12 }}>
+        Export Emails/Users as CSV
       </button>
+      <button onClick={() => { setAdminLoggedIn(false); }} style={{ marginTop: 22, background: "none", color: PRIMARY_RED, border: "none", textDecoration: "underline", fontSize: 15, cursor: "pointer" }}>Log out</button>
     </div>
   );
 }
 
-// ----------- APP ROUTER -----------
+// --------------- ROUTER ---------------
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/admin" element={<AdminLoginAndDashboard />} />
-        <Route path="/" element={<UserLoginAndCard />} />
+        <Route path="*" element={<UserLoginAndCard />} />
       </Routes>
     </Router>
   );
