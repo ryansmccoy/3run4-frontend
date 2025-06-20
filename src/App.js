@@ -6,7 +6,7 @@ const PRIMARY_RED = "#ee2328";
 const PRIMARY_BLUE = "#143e8e";
 const LIGHT_GRAY = "#f2f3f7";
 const CARD_BG = "#ffffff";
-const API_URL = "https://qjbg4gz6ff.execute-api.us-east-1.amazonaws.com/prod";
+const API_URL = "https://qjbg4gz6ff.execute-api.us-east-1.amazonaws.com/prod"; // <--- set your actual URL
 
 function UserLoginAndCard() {
   const [name, setName] = useState("");
@@ -20,12 +20,27 @@ function UserLoginAndCard() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_URL}/card?name=${encodeURIComponent(userName)}`);
+      const url = `${API_URL}/card?name=${encodeURIComponent(userName)}`;
+      console.log("Fetching card with URL:", url);
+      const res = await fetch(url);
       const data = await res.json();
-      let parsed = data.body ? JSON.parse(data.body) : {};
-      let count = typeof parsed.stamp_count === "number" ? parsed.stamp_count : 0;
+      console.log("Card response:", data);
+let parsed = {};
+if (data.body) {
+  try {
+    parsed = JSON.parse(data.body);
+  } catch (e) {
+    parsed = data.body;
+  }
+} else {
+  parsed = data;
+}
+let count = typeof parsed.stamp_count === "number" ? parsed.stamp_count : 0;
+
       setStampCount(count);
+      if (parsed.error) setError(parsed.error);
     } catch (err) {
+      console.error("Fetch card error:", err);
       setError("Failed to connect to backend.");
     }
     setLoading(false);
@@ -36,39 +51,56 @@ function UserLoginAndCard() {
     e.preventDefault();
     if (!name.trim()) return;
     setLoggedIn(true);
+    console.log("User logged in:", name.trim());
     await fetchCard(name.trim());
   };
 
   // Add a stamp and update UI
-  const handleAddStamp = async () => {
-    setError("");
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/stamp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      const data = await res.json();
-      let parsed = data.body ? JSON.parse(data.body) : {};
-      let count = typeof parsed.stamp_count === "number" ? parsed.stamp_count : null;
-      if (count !== null) {
-        setStampCount(count);
-      } else {
-        setError(parsed.error || "Could not update stamp count.");
-      }
-    } catch (err) {
-      setError("Failed to add stamp.");
-    }
-    setLoading(false);
-  };
+const handleAddStamp = async () => {
+  setError("");
+  setLoading(true);
+  try {
+    console.log("Add stamp for:", name);
+    const res = await fetch(`${API_URL}/stamp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    const data = await res.json();
+    console.log("Add stamp response:", data);
 
+    let parsed = {};
+    if (data.body) {
+      try {
+        parsed = JSON.parse(data.body);
+      } catch (e) {
+        parsed = data.body;
+      }
+    } else {
+      parsed = data;
+    }
+    let count = typeof parsed.stamp_count === "number" ? parsed.stamp_count : null;
+
+    if (count !== null) {
+      setStampCount(count);
+      console.log("Updated stamp count:", count);
+    } else {
+      setError(parsed.error || "Could not update stamp count.");
+      console.warn("Stamp error:", parsed.error);
+    }
+  } catch (err) {
+    setError("Failed to add stamp.");
+    console.error("Add stamp error:", err);
+  }
+  setLoading(false);
+};
   // Reset and log out
   const handleLogout = () => {
     setLoggedIn(false);
     setName("");
     setStampCount(null);
     setError("");
+    console.log("User logged out.");
   };
 
   // Login form
@@ -239,12 +271,16 @@ function AdminLoginAndDashboard() {
     setLoadingUsers(true);
     setUsersError("");
     try {
-      const res = await fetch(`${API_URL}/users`);
+      const url = `${API_URL}/users`;
+      console.log("Fetching all users with URL:", url);
+      const res = await fetch(url);
       const data = await res.json();
+      console.log("All users response:", data);
       const items = data.body ? JSON.parse(data.body) : data;
       setUsers(items);
     } catch (err) {
       setUsersError("Failed to fetch users.");
+      console.error("Fetch users error:", err);
     }
     setLoadingUsers(false);
   };
@@ -257,6 +293,7 @@ function AdminLoginAndDashboard() {
       await fetchUsers();
     } else {
       setAdminError("Invalid admin username or password.");
+      console.warn("Admin login failed!");
     }
   };
 
