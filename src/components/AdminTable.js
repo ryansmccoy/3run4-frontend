@@ -1,8 +1,28 @@
 import React, { useState } from "react";
 import { deleteUser } from "../utils/api";
+import AttendanceBar from "./AttendanceBar";
 
 const PRIMARY_RED = "#E02327";
 const PRIMARY_BLUE = "#143E8E";
+
+function sortUsers(users, sortKey, sortAsc) {
+  return [...users].sort((a, b) => {
+    if (sortKey === "stamp_count") {
+      return sortAsc
+        ? (a.stamp_count || 0) - (b.stamp_count || 0)
+        : (b.stamp_count || 0) - (a.stamp_count || 0);
+    }
+    if (sortKey === "last_stamp_date") {
+      return sortAsc
+        ? (a.last_stamp_date || "").localeCompare(b.last_stamp_date || "")
+        : (b.last_stamp_date || "").localeCompare(a.last_stamp_date || "");
+    }
+    // Default: sort by string
+    return sortAsc
+      ? (a[sortKey] || "").localeCompare(b[sortKey] || "")
+      : (b[sortKey] || "").localeCompare(a[sortKey] || "");
+  });
+}
 
 export default function AdminTable({
   users,
@@ -13,19 +33,41 @@ export default function AdminTable({
   onDeleteUser
 }) {
   const [confirming, setConfirming] = useState(null); // email to confirm deletion
+  const [sortKey, setSortKey] = useState("stamp_count");
+  const [sortAsc, setSortAsc] = useState(false);
+
+  const handleSort = (key) => {
+    if (key === sortKey) setSortAsc(!sortAsc);
+    else {
+      setSortKey(key);
+      setSortAsc(true);
+    }
+  };
+
+  const sortedUsers = sortUsers(users, sortKey, sortAsc);
 
   return (
     <table style={{ width: "100%", borderCollapse: "collapse", background: "#f9faff", borderRadius: 10 }}>
       <thead>
         <tr>
-          <th style={thStyle}>Email</th>
-          <th style={thStyle}>Display Name</th>
-          <th style={thStyle}>Stamps</th>
+          <th style={thStyle} onClick={() => handleSort("email")}>
+            Email {sortKey === "email" && (sortAsc ? "▲" : "▼")}
+          </th>
+          <th style={thStyle} onClick={() => handleSort("display_name")}>
+            Display Name {sortKey === "display_name" && (sortAsc ? "▲" : "▼")}
+          </th>
+          <th style={thStyle} onClick={() => handleSort("stamp_count")}>
+            Stamps {sortKey === "stamp_count" && (sortAsc ? "▲" : "▼")}
+          </th>
+          <th style={thStyle} onClick={() => handleSort("last_stamp_date")}>
+            Last Attendance {sortKey === "last_stamp_date" && (sortAsc ? "▲" : "▼")}
+          </th>
+          <th style={thStyle}>Trend (8w)</th>
           <th style={thStyle}>Actions</th>
         </tr>
       </thead>
       <tbody>
-        {users.map(user =>
+        {sortedUsers.map(user =>
           <tr key={user.email} style={{ borderBottom: "1px solid #eee" }}>
             <td style={tdStyle}>{user.email}</td>
             <td style={tdStyle}>{user.display_name || ""}</td>
@@ -66,6 +108,10 @@ export default function AdminTable({
                   >✎</button>
                 </>
               )}
+            </td>
+            <td style={tdStyle}>{user.last_stamp_date || "-"}</td>
+            <td style={tdStyle}>
+              <AttendanceBar attendanceHistory={user.attendance_history || []} />
             </td>
             <td style={tdStyle}>
               {/* Delete Button */}
@@ -111,7 +157,7 @@ export default function AdminTable({
 
 // --- Styling ---
 const thStyle = {
-  background: "#143E8E", color: "#fff", padding: "10px 6px", fontWeight: 700, fontSize: 15
+  background: "#143E8E", color: "#fff", padding: "10px 6px", fontWeight: 700, fontSize: 15, cursor: "pointer"
 };
 const tdStyle = {
   padding: "9px 6px", fontSize: 15, textAlign: "center"

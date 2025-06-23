@@ -8,9 +8,9 @@ export default function Footer() {
       color: "#888",
       textAlign: "center"
     }}>
-      Made by{" "}
-      <a href="https://github.com/ryansmccoy" target="_blank" rel="noopener noreferrer" style={{ color: "#143E8E", fontWeight: 600 }}>
-        ryansmccoy
+      Open Source @ {" "}
+      <a href="https://github.com/ryansmccoy/3run4-frontend" target="_blank" rel="noopener noreferrer" style={{ color: "#143E8E", fontWeight: 600 }}>
+        3run4
       </a>
     </footer>
   );
