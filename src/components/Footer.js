@@ -35,7 +35,7 @@ export default function Footer() {
           Instagram
         </a>
         <a
-          href="https://www.facebook.com/groups/threerunfour"
+          href="https://www.facebook.com/ThreeRunFour"
           target="_blank"
           rel="noopener noreferrer"
           style={linkStyle}
