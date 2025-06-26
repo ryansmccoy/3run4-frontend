@@ -5,14 +5,22 @@ export async function getUserCard(email) {
   return await res.json();
 }
 
-export async function createOrUpdateUser(email, display_name, initial_stamps) {
+// in utils/api.js
+export async function createOrUpdateUser(email, displayName, initialStamps, waiverAccepted) {
+  const body = {
+    email,
+    display_name: displayName
+  };
+  if (initialStamps !== undefined) body.initial_stamps = initialStamps;
+  if (waiverAccepted !== undefined) body.waiver_accepted = waiverAccepted;
   const res = await fetch(`${BASE}/card`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, display_name, initial_stamps })
+    body: JSON.stringify(body)
   });
   return await res.json();
 }
+
 
 export async function addStamp(email) {
   const res = await fetch(`${BASE}/stamp`, {

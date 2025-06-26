@@ -36,3 +36,14 @@
     transform: rotate(360deg);
   }
 }
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.4); }
+  80% { transform: scale(0.95);}
+  100% { transform: scale(1);}
+}
+
+.stamp-pop {
+  animation: pop 0.6s cubic-bezier(.68,-0.55,.27,1.55);
+}

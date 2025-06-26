@@ -9,6 +9,41 @@ const PRIMARY_BLUE = "#143E8E";
 const PRIMARY_RED = "#E02327";
 const CARD_BG = "#fff";
 
+function WaiverModal({ onAccept }) {
+  return (
+    <div style={{
+      position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+      background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999
+    }}>
+      <div style={{
+        background: "#fff", padding: 32, borderRadius: 12, maxWidth: 400,
+        boxShadow: "0 4px 16px rgba(20,62,142,0.14)", textAlign: "left"
+      }}>
+        <h3 style={{ color: PRIMARY_BLUE, marginBottom: 12 }}>Run Club Code of Conduct & Waiver</h3>
+        <div style={{ fontSize: 15, color: "#333", marginBottom: 16, lineHeight: 1.55 }}>
+          <b>Code of Conduct:</b><br/>
+          • Be respectful to all participants<br/>
+          • Run safely and look out for others<br/>
+          • No harassment, discrimination, or unsportsmanlike behavior<br/>
+          <br/>
+          <b>Liability Waiver:</b><br/>
+          • You acknowledge you are participating at your own risk.<br/>
+          • The organizers are not responsible for any injury, loss, or damage.<br/>
+          • By clicking "I Agree," you confirm you have read and accept this waiver.
+        </div>
+        <button
+          onClick={onAccept}
+          style={{
+            padding: "10px 28px", background: PRIMARY_BLUE, color: "#fff",
+            fontWeight: "bold", borderRadius: 7, fontSize: 15, border: "none", cursor: "pointer"
+          }}>
+          I Agree
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function UserLoginAndCard() {
   const [email, setEmail] = useState("");
   const [displayNameInput, setDisplayNameInput] = useState("");
@@ -21,49 +56,56 @@ export default function UserLoginAndCard() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ---- New for prizes ----
+  // Prizes
   const [prizes, setPrizes] = useState([]);
+  // Waiver
+  const [waiverAccepted, setWaiverAccepted] = useState(false);
+  const [showWaiver, setShowWaiver] = useState(false);
+
+  // Confetti animation
+  const [lastAnimatedIdx, setLastAnimatedIdx] = useState(null);
 
   useEffect(() => {
     getPrizes().then(setPrizes).catch(() => setPrizes([]));
   }, []);
-  // ---- End new ----
 
-const handleLogin = async (e) => {
-  e.preventDefault();
-  setError("");
-  setLoading(true);
-  const emailTrimmed = email.trim().toLowerCase();
-try {
-  const data = await getUserCard(emailTrimmed);
-  if (data && !data.error && (data.display_name || data.stamp_count !== undefined)) {
-    // User exists
-    setDisplayName(data.display_name || "");
-    setStampCount(data.stamp_count || 0);
-    setPrizesClaimed(data.prizes_claimed || []);
-    setFirstTime(false);
-    setLoggedIn(true);
+  const handleLogin = async (e) => {
+    e.preventDefault();
     setError("");
-  } else {
-    // User not found, treat as new user
-    setFirstTime(true);
-    setDisplayName("");
-    setStampCount(0);
-    setPrizesClaimed([]);
-    setLoggedIn(true);
-    setError("");
-  }
-} catch {
-  setFirstTime(true);
-  setDisplayName("");
-  setStampCount(0);
-  setPrizesClaimed([]);
-  setLoggedIn(true);
-  setError("");
-}
-  setLoading(false);
-};
-
+    setLoading(true);
+    const emailTrimmed = email.trim().toLowerCase();
+    try {
+      const data = await getUserCard(emailTrimmed);
+      if (data && !data.error && (data.display_name || data.stamp_count !== undefined)) {
+        setDisplayName(data.display_name || "");
+        setStampCount(data.stamp_count || 0);
+        setPrizesClaimed(data.prizes_claimed || []);
+        setFirstTime(false);
+        setWaiverAccepted(!!data.waiver_accepted);
+        setLoggedIn(true);
+        setError("");
+      } else {
+        setFirstTime(true);
+        setWaiverAccepted(false);
+        setShowWaiver(true);
+        setDisplayName("");
+        setStampCount(0);
+        setPrizesClaimed([]);
+        setLoggedIn(true);
+        setError("");
+      }
+    } catch {
+      setFirstTime(true);
+      setWaiverAccepted(false);
+      setShowWaiver(true);
+      setDisplayName("");
+      setStampCount(0);
+      setPrizesClaimed([]);
+      setLoggedIn(true);
+      setError("");
+    }
+    setLoading(false);
+  };
 
   const handleSetDisplayName = async (e) => {
     e.preventDefault();
@@ -74,7 +116,8 @@ try {
       if (firstTime && initialStampsInput && !isNaN(Number(initialStampsInput))) {
         count = Number(initialStampsInput);
       }
-      const data = await createOrUpdateUser(email, displayNameInput, count);
+      // Add waiver_accepted: true for new users
+      const data = await createOrUpdateUser(email, displayNameInput, count, waiverAccepted);
       setDisplayName(data.display_name || "");
       setStampCount(data.stamp_count || 0);
       setPrizesClaimed(data.prizes_claimed || []);
@@ -91,7 +134,11 @@ try {
     setError("");
     try {
       const data = await addStamp(email);
-      if (data.stamp_count !== undefined) setStampCount(data.stamp_count);
+      if (data.stamp_count !== undefined) {
+        setLastAnimatedIdx(data.stamp_count - 1);
+        setStampCount(data.stamp_count);
+        setTimeout(() => setLastAnimatedIdx(null), 1200); // Remove after animation
+      }
       if (data.prizes_claimed) setPrizesClaimed(data.prizes_claimed);
       setError(data.error || "");
     } catch {
@@ -110,7 +157,22 @@ try {
     setError("");
     setFirstTime(false);
     setInitialStampsInput("");
+    setWaiverAccepted(false);
+    setShowWaiver(false);
+    setLastAnimatedIdx(null);
   };
+
+  // Show Waiver Modal for new users
+  if (showWaiver && firstTime && !waiverAccepted) {
+    return (
+      <WaiverModal
+        onAccept={() => {
+          setWaiverAccepted(true);
+          setShowWaiver(false);
+        }}
+      />
+    );
+  }
 
   if (!loggedIn) {
     return (
@@ -173,7 +235,7 @@ try {
                 />
               </div>
             )}
-            <button style={{ marginTop: 10, padding: "10px 30px", fontSize: 16, background: PRIMARY_BLUE, color: "white", border: "none", borderRadius: 8, letterSpacing: 1, fontWeight: "bold", cursor: "pointer" }} type="submit" disabled={loading || !displayNameInput.trim()}>
+            <button style={{ marginTop: 10, padding: "10px 30px", fontSize: 16, background: PRIMARY_BLUE, color: "white", border: "none", borderRadius: 8, letterSpacing: 1, fontWeight: "bold", cursor: "pointer" }} type="submit" disabled={loading || !displayNameInput.trim() || (firstTime && !waiverAccepted)}>
               {loading ? "Saving..." : "Save"}
             </button>
           </form>
@@ -195,7 +257,7 @@ try {
           <span style={{ color: PRIMARY_RED }}>{displayName || email}</span>!
         </h2>
         <div style={{ margin: "16px 0 10px 0", color: PRIMARY_RED, fontWeight: 700 }}>Your stamp card:</div>
-        <StampCard stampCount={stampCount} />
+        <StampCard stampCount={stampCount} lastAnimatedIdx={lastAnimatedIdx} />
         <div style={{margin:"10px 0 5px 0", color:PRIMARY_BLUE, fontWeight:700}}>Prizes:</div>
         <div style={{fontSize:15, marginBottom:6}}>
           {prizes.length === 0
