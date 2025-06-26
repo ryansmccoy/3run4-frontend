@@ -5,6 +5,25 @@ import AttendanceBar from "./AttendanceBar";
 const PRIMARY_RED = "#E02327";
 const PRIMARY_BLUE = "#143E8E";
 
+function getSecondsAgo(dateString) {
+  if (!dateString) return "";
+  // Assume dateString is "YYYY-MM-DD"
+  const date = new Date(dateString + "T00:00:00Z");
+  const now = new Date();
+  const seconds = Math.floor((now - date) / 1000);
+  return seconds;
+}
+function formatDateTime(dtString) {
+  if (!dtString) return "";
+  const date = new Date(dtString.replace(" ", "T") + "Z");
+  return date.toLocaleString(); // will display local date/time
+}
+// Helper: get max available week length from all users
+function getAvailableWeeks(users) {
+  const maxWeeks = Math.max(...users.map(u => u.attendance_history?.length || 0), 0);
+  return Array.from({ length: maxWeeks }, (_, i) => i);
+}
+
 function sortUsers(users, sortKey, sortAsc) {
   return [...users].sort((a, b) => {
     if (sortKey === "stamp_count") {
@@ -35,123 +54,150 @@ export default function AdminTable({
   const [confirming, setConfirming] = useState(null); // email to confirm deletion
   const [sortKey, setSortKey] = useState("stamp_count");
   const [sortAsc, setSortAsc] = useState(false);
+  const [selectedWeek, setSelectedWeek] = useState(null);
+
+  const weekOptions = getAvailableWeeks(users);
+
+  // Only show users who attended in that week
+  const filteredUsers = selectedWeek === null
+    ? users
+    : users.filter(u =>
+        u.attendance_history &&
+        u.attendance_history[u.attendance_history.length - 1 - selectedWeek] === 1
+      );
+
+  const sortedUsers = sortUsers(filteredUsers, sortKey, sortAsc);
+
 
   const handleSort = (key) => {
     if (key === sortKey) setSortAsc(!sortAsc);
-    else {
-      setSortKey(key);
-      setSortAsc(true);
-    }
+    else { setSortKey(key); setSortAsc(true); }
   };
 
-  const sortedUsers = sortUsers(users, sortKey, sortAsc);
-
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse", background: "#f9faff", borderRadius: 10 }}>
-      <thead>
-        <tr>
-          <th style={thStyle} onClick={() => handleSort("email")}>
-            Email {sortKey === "email" && (sortAsc ? "▲" : "▼")}
-          </th>
-          <th style={thStyle} onClick={() => handleSort("display_name")}>
-            Display Name {sortKey === "display_name" && (sortAsc ? "▲" : "▼")}
-          </th>
-          <th style={thStyle} onClick={() => handleSort("stamp_count")}>
-            Stamps {sortKey === "stamp_count" && (sortAsc ? "▲" : "▼")}
-          </th>
-          <th style={thStyle} onClick={() => handleSort("last_stamp_date")}>
-            Last Attendance {sortKey === "last_stamp_date" && (sortAsc ? "▲" : "▼")}
-          </th>
-          <th style={thStyle}>Trend (8w)</th>
-          <th style={thStyle}>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {sortedUsers.map(user =>
-          <tr key={user.email} style={{ borderBottom: "1px solid #eee" }}>
-            <td style={tdStyle}>{user.email}</td>
-            <td style={tdStyle}>{user.display_name || ""}</td>
-            <td style={tdStyle}>
-              {manualEdit[user.email] ? (
-                <>
-                  <input
-                    type="number"
-                    min={0}
-                    value={manualEdit[user.email].stamp_count}
-                    onChange={e => handleManualEdit(user.email, "stamp_count", e.target.value)}
-                    style={{
-                      width: 60,
-                      padding: "3px 7px",
-                      borderRadius: 5,
-                      border: `1.5px solid ${PRIMARY_BLUE}`,
-                      fontSize: 15
-                    }}
-                  />
-                  <button
-                    onClick={() => handleSaveManualEdit(user.email)}
-                    title="Save"
-                    style={actionButtonStyle}
-                  >💾</button>
-                  <button
-                    onClick={() => setManualEdit({ ...manualEdit, [user.email]: undefined })}
-                    title="Cancel"
-                    style={{ ...actionButtonStyle, color: PRIMARY_RED }}
-                  >✕</button>
-                </>
-              ) : (
-                <>
-                  {user.stamp_count}
-                  <button
-                    onClick={() => setManualEdit({ ...manualEdit, [user.email]: { stamp_count: user.stamp_count } })}
-                    title="Edit"
-                    style={{ ...actionButtonStyle, marginLeft: 8 }}
-                  >✎</button>
-                </>
-              )}
-            </td>
-            <td style={tdStyle}>{user.last_stamp_date || "-"}</td>
-            <td style={tdStyle}>
-              <AttendanceBar attendanceHistory={user.attendance_history || []} />
-            </td>
-            <td style={tdStyle}>
-              {/* Delete Button */}
-              <button
-                style={{ ...actionButtonStyle, color: PRIMARY_RED, fontSize: 19 }}
-                title="Delete User"
-                onClick={() => setConfirming(user.email)}
-              >🗑️</button>
-
-              {/* Confirmation Modal */}
-              {confirming === user.email && (
-                <div style={modalOverlayStyle}>
-                  <div style={modalStyle}>
-                    <p>Are you sure you want to delete user<br /><b>{user.display_name || user.email}</b>?</p>
-                    <button
-                      onClick={async () => {
-                        await deleteUser(user.email);
-                        setConfirming(null);
-                        if (onDeleteUser) onDeleteUser();
-                      }}
-                      style={{
-                        background: PRIMARY_RED, color: "#fff", border: "none",
-                        borderRadius: 7, padding: "8px 22px", marginRight: 12, fontWeight: 600, fontSize: 15, cursor: "pointer"
-                      }}
-                    >Yes, Delete</button>
-                    <button
-                      onClick={() => setConfirming(null)}
-                      style={{
-                        background: PRIMARY_BLUE, color: "#fff", border: "none",
-                        borderRadius: 7, padding: "8px 22px", fontWeight: 600, fontSize: 15, cursor: "pointer"
-                      }}
-                    >Cancel</button>
-                  </div>
-                </div>
-              )}
-            </td>
+    <>
+      <div style={{ marginBottom: 10 }}>
+        <label>
+          Filter by week:{" "}
+          <select
+            value={selectedWeek ?? ""}
+            onChange={e => setSelectedWeek(e.target.value === "" ? null : Number(e.target.value))}
+            style={{ fontSize: 16, padding: "2px 7px", borderRadius: 5 }}
+          >
+            <option value="">All weeks</option>
+            {weekOptions.map((w, i) =>
+              <option key={w} value={w}>
+                {`Week ${weekOptions.length - w} (${w === weekOptions.length - 1 ? "this week" : `${weekOptions.length - w} ago`})`}
+              </option>
+            )}
+          </select>
+        </label>
+      </div>
+      <table style={{ width: "100%", borderCollapse: "collapse", background: "#f9faff", borderRadius: 10 }}>
+        <thead>
+          <tr>
+            <th style={thStyle} onClick={() => handleSort("email")}>
+              Email {sortKey === "email" && (sortAsc ? "▲" : "▼")}
+            </th>
+            <th style={thStyle} onClick={() => handleSort("display_name")}>
+              Display Name {sortKey === "display_name" && (sortAsc ? "▲" : "▼")}
+            </th>
+            <th style={thStyle} onClick={() => handleSort("stamp_count")}>
+              Stamps {sortKey === "stamp_count" && (sortAsc ? "▲" : "▼")}
+            </th>
+            <th style={thStyle} onClick={() => handleSort("last_stamp_date")}>
+              Last Attendance {sortKey === "last_stamp_date" && (sortAsc ? "▲" : "▼")}
+            </th>
+            <th style={thStyle}>Trend (8w)</th>
+            <th style={thStyle}>Actions</th>
           </tr>
-        )}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {sortedUsers.map(user =>
+            <tr key={user.email} style={{ borderBottom: "1px solid #eee" }}>
+              <td style={tdStyle}>{user.email}</td>
+              <td style={tdStyle}>{user.display_name || ""}</td>
+              <td style={tdStyle}>
+                {manualEdit[user.email] ? (
+                  <>
+                    <input
+                      type="number"
+                      min={0}
+                      value={manualEdit[user.email].stamp_count}
+                      onChange={e => handleManualEdit(user.email, "stamp_count", e.target.value)}
+                      style={{
+                        width: 60,
+                        padding: "3px 7px",
+                        borderRadius: 5,
+                        border: `1.5px solid ${PRIMARY_BLUE}`,
+                        fontSize: 15
+                      }}
+                    />
+                    <button
+                      onClick={() => handleSaveManualEdit(user.email)}
+                      title="Save"
+                      style={actionButtonStyle}
+                    >💾</button>
+                    <button
+                      onClick={() => setManualEdit({ ...manualEdit, [user.email]: undefined })}
+                      title="Cancel"
+                      style={{ ...actionButtonStyle, color: PRIMARY_RED }}
+                    >✕</button>
+                  </>
+                ) : (
+                  <>
+                    {user.stamp_count}
+                    <button
+                      onClick={() => setManualEdit({ ...manualEdit, [user.email]: { stamp_count: user.stamp_count } })}
+                      title="Edit"
+                      style={{ ...actionButtonStyle, marginLeft: 8 }}
+                    >✎</button>
+                  </>
+                )}
+              </td>
+<td style={tdStyle}>
+  {user.last_stamp_date ? formatDateTime(user.last_stamp_date) : "-"}
+</td>
+              <td style={tdStyle}>
+                <AttendanceBar attendanceHistory={user.attendance_history || []} />
+              </td>
+              <td style={tdStyle}>
+                <button
+                  style={{ ...actionButtonStyle, color: PRIMARY_RED, fontSize: 19 }}
+                  title="Delete User"
+                  onClick={() => setConfirming(user.email)}
+                >🗑️</button>
+                {confirming === user.email && (
+                  <div style={modalOverlayStyle}>
+                    <div style={modalStyle}>
+                      <p>Are you sure you want to delete user<br /><b>{user.display_name || user.email}</b>?</p>
+                      <button
+                        onClick={async () => {
+                          await deleteUser(user.email);
+                          setConfirming(null);
+                          if (onDeleteUser) onDeleteUser();
+                        }}
+                        style={{
+                          background: PRIMARY_RED, color: "#fff", border: "none",
+                          borderRadius: 7, padding: "8px 22px", marginRight: 12, fontWeight: 600, fontSize: 15, cursor: "pointer"
+                        }}
+                      >Yes, Delete</button>
+                      <button
+                        onClick={() => setConfirming(null)}
+                        style={{
+                          background: PRIMARY_BLUE, color: "#fff", border: "none",
+                          borderRadius: 7, padding: "8px 22px", fontWeight: 600, fontSize: 15, cursor: "pointer"
+                        }}
+                      >Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </>
   );
 }
 

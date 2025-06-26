@@ -1,30 +1,23 @@
 import React from "react";
-const PRIMARY_BLUE = "#143E8E";
 
-export default function AttendanceBar({ dates }) {
-  if (!Array.isArray(dates) || dates.length === 0) return <div style={{minWidth:60}} />;
-  const maxBars = 40;
-  const sorted = [...dates].sort();
-  const bars = sorted.slice(-maxBars);
+export default function AttendanceBar({ attendanceHistory = [] }) {
+  const weeks = attendanceHistory.slice(-8);
+  if (weeks.length === 0) {
+    return <span style={{ color: "#aaa" }}>–</span>;
+  }
   return (
-    <div style={{ display: "flex", gap: 1, alignItems: "flex-end", minWidth: 60 }}>
-      {[...Array(maxBars)].map((_, i) => {
-        const hasAttendance = i >= maxBars - bars.length;
-        return (
-          <div
-            key={i}
-            title={hasAttendance ? bars[i - (maxBars - bars.length)] : ""}
-            style={{
-              width: 4,
-              height: hasAttendance ? 20 : 8,
-              background: hasAttendance ? PRIMARY_BLUE : "#E0E2E8",
-              borderRadius: 2,
-              marginRight: i === maxBars-1 ? 0 : 1,
-              transition: "background 0.2s"
-            }}
-          />
-        );
-      })}
+    <div style={{ display: "flex", gap: 2, height: 16, alignItems: "flex-end" }}>
+      {weeks.map((att, i) =>
+        <div key={i}
+          style={{
+            width: 8,
+            height: att ? 16 : 6,
+            background: att ? "#2aaf3b" : "#eee",
+            borderRadius: 2
+          }}
+          title={att ? "Present" : "Absent"}
+        />
+      )}
     </div>
   );
 }

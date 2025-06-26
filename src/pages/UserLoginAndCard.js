@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import logo from "../assets/logo-3run4.png";
-import { getUserCard, createOrUpdateUser, addStamp } from "../utils/api";
+import { getUserCard, createOrUpdateUser, addStamp, getPrizes } from "../utils/api";
 import StampCard from "../components/StampCard";
 import Footer from "../components/Footer";
 import AboutButton from "../components/AboutButton";
@@ -21,30 +21,31 @@ export default function UserLoginAndCard() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // ---- New for prizes ----
+  const [prizes, setPrizes] = useState([]);
+
+  useEffect(() => {
+    getPrizes().then(setPrizes).catch(() => setPrizes([]));
+  }, []);
+  // ---- End new ----
+
 const handleLogin = async (e) => {
   e.preventDefault();
   setError("");
   setLoading(true);
   const emailTrimmed = email.trim().toLowerCase();
-  try {
-    const data = await getUserCard(emailTrimmed);
-    // If API returns error or stamp_count is undefined, treat as not found
-    if (!data || data.error || data.stamp_count === undefined) {
-      setFirstTime(true);
-      setDisplayName("");
-      setStampCount(0);
-      setPrizesClaimed([]);
-      setLoggedIn(true);
-      setError("");
-    } else {
-      setDisplayName(data.display_name || "");
-      setStampCount(data.stamp_count || 0);
-      setPrizesClaimed(data.prizes_claimed || []);
-      setFirstTime(false);
-      setLoggedIn(true);
-      setError("");
-    }
-  } catch {
+try {
+  const data = await getUserCard(emailTrimmed);
+  if (data && !data.error && (data.display_name || data.stamp_count !== undefined)) {
+    // User exists
+    setDisplayName(data.display_name || "");
+    setStampCount(data.stamp_count || 0);
+    setPrizesClaimed(data.prizes_claimed || []);
+    setFirstTime(false);
+    setLoggedIn(true);
+    setError("");
+  } else {
+    // User not found, treat as new user
     setFirstTime(true);
     setDisplayName("");
     setStampCount(0);
@@ -52,8 +53,17 @@ const handleLogin = async (e) => {
     setLoggedIn(true);
     setError("");
   }
+} catch {
+  setFirstTime(true);
+  setDisplayName("");
+  setStampCount(0);
+  setPrizesClaimed([]);
+  setLoggedIn(true);
+  setError("");
+}
   setLoading(false);
 };
+
 
   const handleSetDisplayName = async (e) => {
     e.preventDefault();
@@ -188,9 +198,14 @@ const handleLogin = async (e) => {
         <StampCard stampCount={stampCount} />
         <div style={{margin:"10px 0 5px 0", color:PRIMARY_BLUE, fontWeight:700}}>Prizes:</div>
         <div style={{fontSize:15, marginBottom:6}}>
-          <b>5 stamps:</b> Hat<br/>
-          <b>10 stamps:</b> Case of Beer<br/>
-          <b>15 stamps:</b> Model Car
+          {prizes.length === 0
+            ? "No prizes set yet."
+            : prizes.map((p, i) => (
+                <div key={i}>
+                  <b>{p.stamps} stamps:</b> {p.prize}
+                </div>
+              ))
+          }
         </div>
         <div style={{ margin: "12px 0", color: PRIMARY_BLUE, fontWeight: 700 }}>{stampCount} stamps</div>
         <button
