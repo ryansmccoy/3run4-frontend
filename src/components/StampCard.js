@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import Confetti from "react-dom-confetti";
+import { FaInstagram, FaFacebook, FaGithub } from "react-icons/fa"; // Add this import
 
 const PRIMARY_RED = "#E02327";
 const PRIMARY_BLUE = "#143E8E";
@@ -53,7 +54,7 @@ export default function StampCard({ stampCount, lastAnimatedIdx }) {
               height: 36,
               borderRadius: 18,
               margin: 4,
-              background: isStamped ? PRIMARY_RED : "#ececec",
+              background: "#fff", // <-- Set background to white
               border: `2px solid ${PRIMARY_BLUE}`,
               display: "flex",
               alignItems: "center",
@@ -65,7 +66,20 @@ export default function StampCard({ stampCount, lastAnimatedIdx }) {
               transition: "background 0.2s"
             }}
           >
-            {isStamped ? "✔️" : ""}
+            {isStamped && (
+              <img
+                src={require("../assets/fleur.png")}
+                alt="stamp"
+                style={{
+                  width: 32, // Increased from 24 to 32
+                  height: 32, // Increased from 24 to 32
+                  display: "block",
+                  margin: "0 auto",
+                  imageRendering: "crisp-edges",
+                  filter: "drop-shadow(0 0 1px rgba(0,0,0,0.2))"
+                }}
+              />
+            )}
             <span style={{ position: "absolute", right: -25 }}>
               {getPrizeEmoji(idx)}
             </span>
@@ -94,5 +108,10 @@ export default function StampCard({ stampCount, lastAnimatedIdx }) {
       </div>
     );
   }
-  return <div>{stampCircles}</div>;
+
+  return (
+    <div>
+      {stampCircles}
+    </div>
+  );
 }

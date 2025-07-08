@@ -5,6 +5,7 @@ import { getUserCard, createOrUpdateUser, addStamp, getPrizes } from "../utils/a
 import StampCard from "../components/StampCard";
 import Footer from "../components/Footer";
 import AboutButton from "../components/AboutButton";
+import { FaInstagram, FaFacebook, FaGithub } from "react-icons/fa";
 
 const PRIMARY_BLUE = "#143E8E";
 const PRIMARY_RED = "#E02327";
@@ -393,9 +394,10 @@ export default function UserLoginAndCard() {
               )}
             </>
           )}
-          <div style={{ margin: "16px 0 10px 0", color: PRIMARY_RED, fontWeight: 700 }}>Your stamp card:</div>
+          <div style={{ color: PRIMARY_RED, fontWeight: 700, margin: "18px 0 8px 0" }}>Your stamp card:</div>
           <StampCard stampCount={stampCount} />
-          <div style={{ margin: "10px 0 5px 0", color: PRIMARY_BLUE, fontWeight: 700 }}>Prizes:</div>
+          {/* Prizes and stamp count */}
+          <div style={{ margin: "18px 0 8px 0", color: PRIMARY_BLUE, fontWeight: 700 }}>Prizes:</div>
           <div style={{ fontSize: 15, marginBottom: 6 }}>
             {prizes.length === 0
               ? "No prizes set yet."
@@ -406,28 +408,29 @@ export default function UserLoginAndCard() {
               ))
             }
           </div>
-          <div style={{ margin: "12px 0", color: PRIMARY_BLUE, fontWeight: 700 }}>{stampCount} stamps</div>
+          <div style={{ margin: "10px 0 18px 0", color: PRIMARY_BLUE }}>{stampCount} stamps</div>
           <button
             onClick={handleAddStamp}
             style={{
-              padding: "10px 30px",
-              fontSize: 16,
               background: PRIMARY_BLUE,
-              color: "white",
-              border: "none",
-              borderRadius: 8,
+              color: "#fff",
               fontWeight: "bold",
-              cursor: "pointer",
-              marginBottom: 10
+              borderRadius: 7,
+              fontSize: 18,
+              border: "none",
+              padding: "12px 0",
+              width: "70%",
+              margin: "0 auto 18px auto",
+              display: "block",
+              cursor: "pointer"
             }}
-            disabled={loading}
           >
             Add Stamp
           </button>
-          <div>
-            <button onClick={handleLogout} style={{ marginTop: 14, background: "none", color: PRIMARY_RED, border: "none", textDecoration: "underline", fontSize: 15, cursor: "pointer" }}>Log out</button>
-          </div>
-          {error && <div style={{ color: PRIMARY_RED, marginTop: 8 }}>{error}</div>}
+          <button onClick={handleLogout} style={{ marginTop: 10, background: "none", color: PRIMARY_RED, border: "none", textDecoration: "underline", fontSize: 15, cursor: "pointer" }}>
+            Log out
+          </button>
+          <Footer />
         </div>
         <AboutButton />
       </>
