@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import logo from "../assets/logo-3run4.png";
-import { fetchUsers, createOrUpdateUser, fetchPrizes } from "../utils/api";
+import { fetchUsers, createOrUpdateUser, fetchPrizes, getAnnouncement, setAnnouncement, adminLogin } from "../utils/api";
 import AdminTable from "../components/AdminTable";
 import Footer from "../components/Footer";
 import AboutButton from "../components/AboutButton";
@@ -33,6 +33,9 @@ export default function AdminDashboard() {
   const [prizeTable, setPrizeTable] = useState(DEFAULT_PRIZE_TABLE);
   const [userToDelete, setUserToDelete] = useState(null);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [announcement, setAnnouncementText] = useState("");
+  const [savingAnnouncement, setSavingAnnouncement] = useState(false);
 
   // Sorting state
   const [sortColumn, setSortColumn] = useState("email");
@@ -40,6 +43,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (adminLoggedIn) {
+      getAnnouncement().then(a => setAnnouncementText(a.text || ""));
       fetchUsersList();
       fetchPrizes().then(p => {
         if (Array.isArray(p)) setPrizeTable(p);
@@ -48,12 +52,18 @@ export default function AdminDashboard() {
     // eslint-disable-next-line
   }, [adminLoggedIn]);
 
-  const handleAdminLogin = (e) => {
+  const handleAdminLogin = async (e) => {
     e.preventDefault();
-    if (adminEmail === "admin@3run4.org" && adminPassword === "3run4") {
-      setAdminLoggedIn(true);
-      setAdminError("");
-    } else {
+    setAdminError("");
+    try {
+      const res = await adminLogin(adminEmail, adminPassword);
+      if (res && res.admin) {
+        setAdminLoggedIn(true);
+        setAdminError("");
+      } else {
+        setAdminError("Invalid admin credentials");
+      }
+    } catch {
       setAdminError("Invalid admin credentials");
     }
   };
@@ -207,6 +217,21 @@ export default function AdminDashboard() {
           )}
           <button onClick={fetchUsersList} style={{ background: PRIMARY_BLUE, color: "white", border: "none", padding: "7px 14px", borderRadius: 5 }}>Refresh</button>
           <button onClick={handlePickRaffleWinner} style={{ background: PRIMARY_RED, color: "white", border: "none", padding: "7px 14px", borderRadius: 5, marginLeft: 16 }}>Pick Raffle Winner</button>
+          <button
+            onClick={() => setShowAnnouncementModal(true)}
+            style={{
+              background: "#143E8E",
+              color: "#fff",
+              border: "none",
+              borderRadius: 7,
+              padding: "7px 14px",
+              fontWeight: 600,
+              fontSize: 15,
+              cursor: "pointer"
+            }}
+          >
+            Edit Announcement
+          </button>
         </div>
         {raffleWinner && (
           <div style={{ background: "#f8fcf3", color: PRIMARY_RED, fontWeight: 700, border: `2px dashed ${PRIMARY_RED}`, padding: 16, marginBottom: 14, borderRadius: 8 }}>
@@ -249,6 +274,72 @@ export default function AdminDashboard() {
         <Footer />
       </div>
       <AboutButton />
+      {showAnnouncementModal && (
+        <div style={{
+          position: "fixed",
+          top: 0, left: 0, width: "100vw", height: "100vh",
+          background: "rgba(0,0,0,0.35)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: "#fff",
+            padding: 28,
+            borderRadius: 12,
+            minWidth: 320,
+            maxWidth: 400,
+            boxShadow: "0 4px 16px rgba(20,62,142,0.14)"
+          }}>
+            <h3 style={{ color: "#143E8E", marginBottom: 12 }}>Edit Announcement</h3>
+            <textarea
+              value={announcement}
+              onChange={e => setAnnouncementText(e.target.value)}
+              rows={3}
+              style={{ width: "100%", marginBottom: 14, fontSize: 15, borderRadius: 6, border: "1.5px solid #143E8E", padding: 8 }}
+            />
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowAnnouncementModal(false)}
+                style={{
+                  background: "#eee",
+                  color: "#333",
+                  border: "none",
+                  borderRadius: 7,
+                  padding: "7px 18px",
+                  fontWeight: 500,
+                  fontSize: 15,
+                  cursor: "pointer"
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setSavingAnnouncement(true);
+                  await setAnnouncement(announcement);
+                  setSavingAnnouncement(false);
+                  setShowAnnouncementModal(false);
+                }}
+                disabled={savingAnnouncement}
+                style={{
+                  background: "#143E8E",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 7,
+                  padding: "7px 18px",
+                  fontWeight: 600,
+                  fontSize: 15,
+                  cursor: "pointer"
+                }}
+              >
+                {savingAnnouncement ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

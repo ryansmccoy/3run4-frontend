@@ -5,14 +5,16 @@ export async function getUserCard(email) {
   return await res.json();
 }
 
-// in utils/api.js
-export async function createOrUpdateUser(email, displayName, initialStamps, waiverAccepted) {
+// in utils/api.js (or wherever your API functions are defined)
+export async function createOrUpdateUser(email, displayName, initialStamps, waiverAccepted, newsletterOptIn) {
   const body = {
     email,
-    display_name: displayName
+    display_name: displayName,
+    waiver_accepted: waiverAccepted,
   };
   if (initialStamps !== undefined) body.initial_stamps = initialStamps;
-  if (waiverAccepted !== undefined) body.waiver_accepted = waiverAccepted;
+  if (newsletterOptIn !== undefined) body.newsletter_opt_in = newsletterOptIn;
+  // call your API as before
   const res = await fetch(`${BASE}/card`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -62,4 +64,27 @@ export async function getPrizes() {
   const resp = await fetch(`${BASE}/prizes`);
   if (!resp.ok) throw new Error("Could not fetch prizes");
   return await resp.json();
+}
+
+export async function getAnnouncement() {
+  const res = await fetch(`${BASE}/announcement`);
+  return await res.json();
+}
+
+export async function setAnnouncement(text) {
+  const res = await fetch(`${BASE}/announcement`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text })
+  });
+  return await res.json();
+}
+
+export async function adminLogin(email, password) {
+  const res = await fetch(`${BASE}/admin-login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+  return await res.json();
 }
