@@ -1,6 +1,5 @@
 import React, { useRef, useEffect } from "react";
 import Confetti from "react-dom-confetti";
-import { FaInstagram, FaFacebook, FaGithub } from "react-icons/fa"; // Add this import
 
 const PRIMARY_RED = "#E02327";
 const PRIMARY_BLUE = "#143E8E";
@@ -21,8 +20,8 @@ const confettiConfig = {
 };
 
 export default function StampCard({ stampCount, lastAnimatedIdx }) {
-  const cardCols = 5;
-  const totalStamps = Math.max(stampCount, 20); // at least 4 rows
+  const cardCols = 5; // Changed back to 5 columns
+  const totalStamps = Math.max(stampCount, 20); // at least 4 rows (5x4 = 20 stamps)
   const cardRows = Math.ceil(totalStamps / cardCols);
 
   // Refs for confetti per stamp
@@ -32,57 +31,74 @@ export default function StampCard({ stampCount, lastAnimatedIdx }) {
     confettiRefs.current = confettiRefs.current.slice(0, cardRows * cardCols);
   }, [cardRows, cardCols]);
 
-  function getPrizeEmoji(idx) {
-    if (idx === 4) return "🧢";
-    if (idx === 9) return "🍺";
-    if (idx === 14) return "🚗";
-    return "";
-  }
-
   const stampCircles = [];
   for (let row = 0; row < cardRows; ++row) {
     const rowArr = [];
     for (let col = 0; col < cardCols; ++col) {
       const idx = row * cardCols + col;
       const isStamped = idx < stampCount;
+      
+      // Generate consistent random position and rotation for each stamp based on its index
+      // This ensures stamps don't move when new ones are added
+      const seed = idx * 123.456; // Use index as seed for consistent randomness
+      const randomX = (Math.sin(seed) * 6) - 3; // -3 to 3 pixels (reduced from ±5 to keep well inside circles)
+      const randomY = (Math.cos(seed * 1.1) * 6) - 3; // -3 to 3 pixels (reduced from ±5 to keep well inside circles)
+      const randomRotation = (Math.sin(seed * 0.7) * 30) - 15; // -15 to 15 degrees (reduced from ±20 for more subtle rotation)
+      
+      // Determine if this stamp should have a shadow (about 60% of stamps)
+      const shouldHaveShadow = Math.sin(seed * 2.3) > -0.2; // ~60% will have shadow
+      
       rowArr.push(
         <div key={col} style={{ position: "relative" }}>
           <div
             className={isStamped && idx === lastAnimatedIdx ? "stamp-pop" : ""}
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              margin: 4,
-              background: "#fff", // <-- Set background to white
+              width: 48, // Adjusted back for 5-column layout
+              height: 48, // Adjusted back for 5-column layout
+              borderRadius: 24, // Adjusted for new size
+              margin: 6, // Reduced margin for 5 columns
+              background: "#fff",
               border: `2px solid ${PRIMARY_BLUE}`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 21,
+              fontSize: 16,
               fontWeight: "bold",
-              color: "#fff",
+              color: PRIMARY_BLUE,
               position: "relative",
               transition: "background 0.2s"
             }}
           >
+            {/* Circle number */}
+            <span style={{ 
+              position: "absolute", 
+              fontSize: 16, // Increased from 14 to 16
+              fontWeight: "700", // Made bolder (was 600)
+              fontFamily: "Georgia, 'Times New Roman', serif", // Classic serif font like the physical card
+              color: "#4A6FA5", // Lighter blue color
+              zIndex: 1
+            }}>
+              {idx + 1}
+            </span>
+            
+            {/* Fleur stamp with random position and rotation */}
             {isStamped && (
               <img
                 src={require("../assets/fleur.png")}
                 alt="stamp"
                 style={{
-                  width: 32, // Increased from 24 to 32
-                  height: 32, // Increased from 24 to 32
-                  display: "block",
-                  margin: "0 auto",
+                  width: 58, // Adjusted for 5-column layout
+                  height: 58, // Adjusted for 5-column layout
+                  position: "absolute",
+                  transform: `translate(${randomX}px, ${randomY}px) rotate(${randomRotation}deg)`,
                   imageRendering: "crisp-edges",
-                  filter: "drop-shadow(0 0 1px rgba(0,0,0,0.2))"
+                  filter: shouldHaveShadow 
+                    ? `brightness(0) saturate(100%) invert(16%) sepia(98%) saturate(6500%) hue-rotate(356deg) brightness(85%) contrast(125%) drop-shadow(1px 1px 2px rgba(139, 69, 19, 0.25))`
+                    : `brightness(0) saturate(100%) invert(16%) sepia(98%) saturate(6500%) hue-rotate(356deg) brightness(85%) contrast(125%)`, // Darker red color
+                  zIndex: 2
                 }}
               />
             )}
-            <span style={{ position: "absolute", right: -25 }}>
-              {getPrizeEmoji(idx)}
-            </span>
           </div>
           {/* Confetti */}
           <div
@@ -110,7 +126,15 @@ export default function StampCard({ stampCount, lastAnimatedIdx }) {
   }
 
   return (
-    <div>
+    <div style={{
+      background: "#fff",
+      border: "1px solid #ddd",
+      borderRadius: "8px",
+      padding: "20px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+      maxWidth: "400px", // Increased width for 5-column layout
+      margin: "0 auto"
+    }}>
       {stampCircles}
     </div>
   );

@@ -49,8 +49,6 @@ export default function AboutButton() {
           >
             <h3 style={{ color: "#143E8E", marginTop: 0 }}>About</h3>
             <p style={{ fontSize: 16, color: "#555", marginBottom: 18 }}>
-              This 3run4 stamp card app was designed and built by <a href="https://github.com/ryansmccoy" target="_blank" rel="noopener noreferrer" style={{ color: "#143E8E", fontWeight: 600 }}>ryansmccoy</a>.<br/>
-              <span style={{ fontSize: 14, color: "#999" }}>Open Source, STL made.</span>
             </p>
             <button
               onClick={() => setOpen(false)}

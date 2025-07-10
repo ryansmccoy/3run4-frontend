@@ -87,6 +87,8 @@ export default function UserLoginAndCard() {
   // Announcement
   const [announcement, setAnnouncement] = useState("");
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [showPrizesModal, setShowPrizesModal] = useState(false);
+  const [lastAnimatedIdx, setLastAnimatedIdx] = useState(-1); // For confetti animation
 
   useEffect(() => {
     getPrizes().then(setPrizes).catch(() => setPrizes([]));
@@ -158,7 +160,10 @@ export default function UserLoginAndCard() {
     setError("");
     try {
       const data = await addStamp(email);
-      if (data.stamp_count !== undefined) setStampCount(data.stamp_count);
+      if (data.stamp_count !== undefined) {
+        setLastAnimatedIdx(data.stamp_count - 1); // Set for confetti animation
+        setStampCount(data.stamp_count);
+      }
       if (data.prizes_claimed) setPrizesClaimed(data.prizes_claimed);
       setError(data.error || "");
     } catch {
@@ -394,21 +399,79 @@ export default function UserLoginAndCard() {
               )}
             </>
           )}
-          <div style={{ color: PRIMARY_RED, fontWeight: 700, margin: "18px 0 8px 0" }}>Your stamp card:</div>
-          <StampCard stampCount={stampCount} />
-          {/* Prizes and stamp count */}
-          <div style={{ margin: "18px 0 8px 0", color: PRIMARY_BLUE, fontWeight: 700 }}>Prizes:</div>
-          <div style={{ fontSize: 15, marginBottom: 6 }}>
-            {prizes.length === 0
-              ? "No prizes set yet."
-              : prizes.map((p, i) => (
-                <div key={i}>
-                  <b>{p.stamps} stamps:</b> {p.prize}
-                </div>
-              ))
-            }
+          <div style={{ color: PRIMARY_BLUE, fontWeight: 600, marginBottom: 18, fontSize: 16 }}>{stampCount} stamps</div>
+          <StampCard stampCount={stampCount} lastAnimatedIdx={lastAnimatedIdx} />
+          
+          {/* Centered View Prizes button */}
+          <div style={{ margin: "18px 0", textAlign: "center" }}>
+            <button
+              onClick={() => setShowPrizesModal(true)}
+              style={{
+                background: "transparent",
+                color: PRIMARY_BLUE,
+                border: `2px solid ${PRIMARY_BLUE}`,
+                borderRadius: 7,
+                padding: "8px 16px",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer"
+              }}
+            >
+              View Prizes
+            </button>
           </div>
-          <div style={{ margin: "10px 0 18px 0", color: PRIMARY_BLUE }}>{stampCount} stamps</div>
+
+          {/* Prizes Modal */}
+          {showPrizesModal && (
+            <div style={{
+              position: "fixed",
+              top: 0, left: 0, width: "100vw", height: "100vh",
+              background: "rgba(0,0,0,0.35)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1000
+            }}>
+              <div style={{
+                background: "#fff",
+                padding: 28,
+                borderRadius: 12,
+                minWidth: 320,
+                maxWidth: 400,
+                boxShadow: "0 4px 16px rgba(20,62,142,0.14)",
+                textAlign: "left"
+              }}>
+                <h3 style={{ color: PRIMARY_BLUE, marginBottom: 16, textAlign: "center" }}>Prizes</h3>
+                <div style={{ fontSize: 15, marginBottom: 18 }}>
+                  {prizes.length === 0
+                    ? "No prizes set yet."
+                    : prizes.map((p, i) => (
+                      <div key={i} style={{ marginBottom: 8, padding: "8px 12px", background: "#f8f9fa", borderRadius: 6 }}>
+                        <b>{p.stamps} stamps:</b> {p.prize}
+                      </div>
+                    ))
+                  }
+                </div>
+                <button
+                  onClick={() => setShowPrizesModal(false)}
+                  style={{
+                    background: PRIMARY_BLUE,
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 7,
+                    padding: "8px 20px",
+                    fontWeight: 600,
+                    fontSize: 15,
+                    cursor: "pointer",
+                    width: "100%"
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
           <button
             onClick={handleAddStamp}
             style={{
@@ -427,6 +490,7 @@ export default function UserLoginAndCard() {
           >
             Add Stamp
           </button>
+          {error && <p style={{ color: PRIMARY_RED, marginTop: 14, textAlign: "center" }}>{error}</p>}
           <button onClick={handleLogout} style={{ marginTop: 10, background: "none", color: PRIMARY_RED, border: "none", textDecoration: "underline", fontSize: 15, cursor: "pointer" }}>
             Log out
           </button>
