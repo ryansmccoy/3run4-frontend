@@ -67,15 +67,19 @@ function WaiverModal({ onAccept }) {
 }
 
 export default function UserLoginAndCard() {
-  const [email, setEmail] = useState("");
+  // Initialize state with localStorage values if available
+  const [email, setEmail] = useState(() => localStorage.getItem("3run4_email") || "");
   const [newsletterOptIn, setNewsletterOptIn] = useState(false);
   const [displayNameInput, setDisplayNameInput] = useState("");
   const [initialStampsInput, setInitialStampsInput] = useState("");
   const [firstTime, setFirstTime] = useState(false);
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [displayName, setDisplayName] = useState("");
-  const [stampCount, setStampCount] = useState(0);
-  const [prizesClaimed, setPrizesClaimed] = useState([]);
+  const [loggedIn, setLoggedIn] = useState(() => localStorage.getItem("3run4_loggedIn") === "true");
+  const [displayName, setDisplayName] = useState(() => localStorage.getItem("3run4_displayName") || "");
+  const [stampCount, setStampCount] = useState(() => parseInt(localStorage.getItem("3run4_stampCount")) || 0);
+  const [prizesClaimed, setPrizesClaimed] = useState(() => {
+    const saved = localStorage.getItem("3run4_prizesClaimed");
+    return saved ? JSON.parse(saved) : [];
+  });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -90,9 +94,34 @@ export default function UserLoginAndCard() {
   const [showPrizesModal, setShowPrizesModal] = useState(false);
   const [lastAnimatedIdx, setLastAnimatedIdx] = useState(-1); // For confetti animation
 
+  // Load user data on app start if already logged in
   useEffect(() => {
     getPrizes().then(setPrizes).catch(() => setPrizes([]));
     getAnnouncement().then(a => setAnnouncement(a.text || ""));
+    
+    // If user is logged in from localStorage, refresh their data
+    const savedEmail = localStorage.getItem("3run4_email");
+    const savedLoggedIn = localStorage.getItem("3run4_loggedIn") === "true";
+    if (savedEmail && savedLoggedIn) {
+      // Refresh user data from server
+      getUserCard(savedEmail)
+        .then(data => {
+          if (data && !data.error && (data.display_name || data.stamp_count !== undefined)) {
+            setDisplayName(data.display_name || "");
+            setStampCount(data.stamp_count || 0);
+            setPrizesClaimed(data.prizes_claimed || []);
+            
+            // Update localStorage with fresh data
+            localStorage.setItem("3run4_displayName", data.display_name || "");
+            localStorage.setItem("3run4_stampCount", data.stamp_count || 0);
+            localStorage.setItem("3run4_prizesClaimed", JSON.stringify(data.prizes_claimed || []));
+          }
+        })
+        .catch(() => {
+          // If refresh fails, keep the cached data but user stays logged in
+          console.log("Could not refresh user data, using cached data");
+        });
+    }
   }, []);
 
   const handleLogin = async (e) => {
@@ -110,6 +139,13 @@ export default function UserLoginAndCard() {
         setWaiverAccepted(!!data.waiver_accepted);
         setLoggedIn(true);
         setError("");
+        
+        // Save to localStorage
+        localStorage.setItem("3run4_email", emailTrimmed);
+        localStorage.setItem("3run4_loggedIn", "true");
+        localStorage.setItem("3run4_displayName", data.display_name || "");
+        localStorage.setItem("3run4_stampCount", data.stamp_count || 0);
+        localStorage.setItem("3run4_prizesClaimed", JSON.stringify(data.prizes_claimed || []));
       } else {
         setFirstTime(true);
         setWaiverAccepted(false);
@@ -119,6 +155,13 @@ export default function UserLoginAndCard() {
         setPrizesClaimed([]);
         setLoggedIn(true);
         setError("");
+        
+        // Save to localStorage for new users
+        localStorage.setItem("3run4_email", emailTrimmed);
+        localStorage.setItem("3run4_loggedIn", "true");
+        localStorage.setItem("3run4_displayName", "");
+        localStorage.setItem("3run4_stampCount", "0");
+        localStorage.setItem("3run4_prizesClaimed", "[]");
       }
     } catch {
       setFirstTime(true);
@@ -129,6 +172,13 @@ export default function UserLoginAndCard() {
       setPrizesClaimed([]);
       setLoggedIn(true);
       setError("");
+      
+      // Save to localStorage even for new users (in case of network error)
+      localStorage.setItem("3run4_email", emailTrimmed);
+      localStorage.setItem("3run4_loggedIn", "true");
+      localStorage.setItem("3run4_displayName", "");
+      localStorage.setItem("3run4_stampCount", "0");
+      localStorage.setItem("3run4_prizesClaimed", "[]");
     }
     setLoading(false);
   };
@@ -149,6 +199,11 @@ export default function UserLoginAndCard() {
       setPrizesClaimed(data.prizes_claimed || []);
       setFirstTime(false);
       setError("");
+      
+      // Update localStorage
+      localStorage.setItem("3run4_displayName", data.display_name || "");
+      localStorage.setItem("3run4_stampCount", data.stamp_count || 0);
+      localStorage.setItem("3run4_prizesClaimed", JSON.stringify(data.prizes_claimed || []));
     } catch {
       setError("Failed to save display name.");
     }
@@ -163,8 +218,12 @@ export default function UserLoginAndCard() {
       if (data.stamp_count !== undefined) {
         setLastAnimatedIdx(data.stamp_count - 1); // Set for confetti animation
         setStampCount(data.stamp_count);
+        localStorage.setItem("3run4_stampCount", data.stamp_count);
       }
-      if (data.prizes_claimed) setPrizesClaimed(data.prizes_claimed);
+      if (data.prizes_claimed) {
+        setPrizesClaimed(data.prizes_claimed);
+        localStorage.setItem("3run4_prizesClaimed", JSON.stringify(data.prizes_claimed));
+      }
       setError(data.error || "");
     } catch {
       setError("Could not update stamp count.");
@@ -185,6 +244,13 @@ export default function UserLoginAndCard() {
     setWaiverAccepted(false);
     setShowWaiver(false);
     setNewsletterOptIn(false);
+    
+    // Clear localStorage
+    localStorage.removeItem("3run4_email");
+    localStorage.removeItem("3run4_loggedIn");
+    localStorage.removeItem("3run4_displayName");
+    localStorage.removeItem("3run4_stampCount");
+    localStorage.removeItem("3run4_prizesClaimed");
   };
 
   // Show Waiver Modal for new users
